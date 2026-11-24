@@ -1,0 +1,17 @@
+[
+  { "sku": "PNL-HX430", "category": "panel", "brand": "Helix", "name": "430 W all-black mono", "watts": 430, "costPrice": 78, "stock": 1200, "leadTimeDays": 0 },
+  { "sku": "PNL-HX450", "category": "panel", "brand": "Helix", "name": "450 W all-black mono", "watts": 450, "costPrice": 86, "stock": 340, "leadTimeDays": 0 },
+  { "sku": "PNL-SV410", "category": "panel", "brand": "Solvane", "name": "410 W silver frame", "watts": 410, "costPrice": 69, "stock": 0, "leadTimeDays": 21 },
+
+  { "sku": "INV-VE3.0-1", "category": "inverter", "brand": "VoltEdge", "name": "3.0 kW string inverter (1-ph)", "acKw": 3.0, "maxDcKw": 4.5, "phase": 1, "hybrid": false, "costPrice": 395, "stock": 60, "leadTimeDays": 0 },
+  { "sku": "INV-VE3.6-1", "category": "inverter", "brand": "VoltEdge", "name": "3.6 kW string inverter (1-ph)", "acKw": 3.6, "maxDcKw": 5.4, "phase": 1, "hybrid": false, "costPrice": 430, "stock": 85, "leadTimeDays": 0 },
+  { "sku": "INV-VE5.0-1", "category": "inverter", "brand": "VoltEdge", "name": "5.0 kW string inverter (1-ph)", "acKw": 5.0, "maxDcKw": 7.5, "phase": 1, "hybrid": false, "costPrice": 520, "stock": 40, "leadTimeDays": 0 },
+  { "sku": "INV-VE6.0-3", "category": "inverter", "brand": "VoltEdge", "name": "6.0 kW string inverter (3-ph)", "acKw": 6.0, "maxDcKw": 9.0, "phase": 3, "hybrid": false, "costPrice": 760, "stock": 12, "leadTimeDays": 0 },
+  { "sku": "INV-VE10-3", "category": "inverter", "brand": "VoltEdge", "name": "10 kW string inverter (3-ph)", "acKw": 10.0, "maxDcKw": 15.0, "phase": 3, "hybrid": false, "costPrice": 980, "stock": 6, "leadTimeDays": 0 },
+  { "sku": "INV-HB3.6-1", "category": "inverter", "brand": "VoltEdge", "name": "3.6 kW hybrid inverter (1-ph)", "acKw": 3.6, "maxDcKw": 5.4, "phase": 1, "hybrid": true, "costPrice": 780, "stock": 30, "leadTimeDays": 0 },
+  { "sku": "INV-HB5.0-1", "category": "inverter", "brand": "VoltEdge", "name": "5.0 kW hybrid inverter (1-ph)", "acKw": 5.0, "maxDcKw": 7.5, "phase": 1, "hybrid": true, "costPrice": 920, "stock": 8, "leadTimeDays": 10 },
+  { "sku": "INV-HB8-3", "category": "inverter", "brand": "VoltEdge", "name": "8 kW hybrid inverter (3-ph)", "acKw": 8.0, "maxDcKw": 12.0, "phase": 3, "hybrid": true, "costPrice": 1450, "stock": 4, "leadTimeDays": 14 },
+
+  { "sku": "BAT-CL5", "category": "battery", "brand": "Cellora", "name": "5.1 kWh LFP battery", "capacityKwh": 5.1, "costPrice": 1150, "stock": 25, "leadTimeDays": 0 },
+  { "sku": "BAT-CL10", "category": "battery", "brand": "Cellora", "name": "10.2 kWh LFP battery", "capacityKwh": 10.2, "costPrice": 2050, "stock": 10, "leadTimeDays": 7 }
+]
