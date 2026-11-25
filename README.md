@@ -91,8 +91,8 @@ quotes) and **staff** (quotes). On a fresh server the app shows a one-time setup
 - Build: `npm run build` (front end to `dist/`, server bundle to `dist-server/index.mjs`)
 - Start: `node dist-server/index.mjs`
 - Environment variables:
-  - `NODE_ENV=production`
-  - `SESSION_SECRET` – long random string (required in production)
+  - `SESSION_SECRET` – long random string (keeps sign-ins valid across restarts)
+  - Don't set `NODE_ENV=production` on Hostinger: it makes npm skip the build tools
   - `SETUP_CODE` – one-time code for creating the first admin
   - `PRICE_DATA_DIR` – a folder outside the website that survives redeploys (prices, template, users)
 - After the first sign-in, upload the Midsummer sheet, the prepared quotation template and any extra

@@ -26,10 +26,10 @@ export type PublicUser = Pick<StoredUser, 'id' | 'email' | 'name' | 'role' | 'cr
 const FILE = 'users.json';
 const COOKIE = 'rex_session';
 const SESSION_DAYS = 7;
-const IS_PROD = process.env.NODE_ENV === 'production';
-
-const SECRET = process.env.SESSION_SECRET || (IS_PROD ? '' : randomBytes(32).toString('hex'));
-if (!SECRET) throw new Error('SESSION_SECRET must be set in production');
+// Set SESSION_SECRET on the server so sign-ins survive restarts; without it a random one is
+// used per process (fine for development, but everyone is signed out on each restart).
+const SECRET = process.env.SESSION_SECRET || randomBytes(32).toString('hex');
+if (!process.env.SESSION_SECRET) console.warn('SESSION_SECRET is not set: sign-ins will not survive a restart.');
 
 const toPublic = ({ id, email, name, role, createdAt }: StoredUser): PublicUser => ({ id, email, name, role, createdAt });
 const normEmail = (e: string) => String(e ?? '').trim().toLowerCase();
@@ -61,10 +61,11 @@ async function verify(user: StoredUser, pw: string) {
 
 const sign = (data: string) => createHmac('sha256', SECRET).update(data).digest('base64url');
 
-function issue(res: Response, user: StoredUser) {
+function issue(req: Request, res: Response, user: StoredUser) {
   const payload = Buffer.from(JSON.stringify({ uid: user.id, exp: Date.now() + SESSION_DAYS * 86_400_000 })).toString('base64url');
   res.cookie(COOKIE, `${payload}.${sign(payload)}`, {
-    httpOnly: true, sameSite: 'lax', secure: IS_PROD, path: '/', maxAge: SESSION_DAYS * 86_400_000,
+    // Secure whenever the request came over HTTPS (behind the host's proxy, via trust proxy)
+    httpOnly: true, sameSite: 'lax', secure: req.secure, path: '/', maxAge: SESSION_DAYS * 86_400_000,
   });
 }
 
@@ -152,7 +153,7 @@ export async function login(req: Request, res: Response) {
     return;
   }
   attempts.delete(key);
-  issue(res, user);
+  issue(req, res, user);
   res.json({ user: toPublic(user) });
 }
 
@@ -190,7 +191,7 @@ export async function setup(req: Request, res: Response) {
   }
   const user: StoredUser = { id: randomUUID(), email, name, role: 'admin', createdAt: new Date().toISOString(), ...(await hashPassword(req.body.password)) };
   await saveUsers([user]);
-  issue(res, user);
+  issue(req, res, user);
   res.json({ user: toPublic(user) });
 }
 

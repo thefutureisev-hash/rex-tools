@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -k -n api,web \"tsx watch server/index.ts\" \"vite\"",
     "build": "vite build && npm run build:server",
-    "start": "NODE_ENV=production node dist-server/index.mjs",
+    "start": "node dist-server/index.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build:static": "tsx scripts/export-static-data.mts && vite build --mode static",
