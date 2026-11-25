@@ -61,3 +61,21 @@ Products missing from the sheet (e.g. small string inverters) can be listed in
 catalogue, also not committed).
 
 Until a sheet is uploaded, the app falls back to a fictional sample list (`data/sample-catalog.json`).
+
+## Quote PDF
+
+"Generate quote PDF" builds the customer PDF in the browser from REX's Canva **Solar Quotation
+Template**: the fixed pages (About, Services, Solar & battery, Next steps, Recent work) are copied as
+they are, and the cover, scope of works, project design (residential only) and project costing pages
+are filled in (`shared/quotePdf.ts`, content from `shared/quoteDocs.ts`). Payment schedules default to
+60/40 for developers and 20/50/25/5 for residential, and can be changed per quote.
+
+The template is kept on the server, not in git. After exporting a new version from Canva, prepare it with:
+
+```bash
+PRICE_DATA_DIR=/path/to/private npx tsx scripts/prepare-template.mts "Solar Quotation Template.pdf"
+```
+
+This hides the placeholder text (needs `pdftoppm` and Python with Pillow). If the layout of the cover,
+scope or costing pages changes, the positions in `TEMPLATE` (`shared/quotePdf.ts`) need updating.
+

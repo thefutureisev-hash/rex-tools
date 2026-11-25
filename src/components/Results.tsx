@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import type { Catalog, Line, QuoteResult } from '../../shared/types';
 import { IS_STATIC, money, num } from '../api';
 
@@ -33,9 +33,10 @@ interface Props {
   onRefresh: () => void;
   onUpload: (file: File) => void;
   uploading: boolean;
+  pdfButton?: ReactNode;
 }
 
-export function Results({ result, catalog, onRefresh, onUpload, uploading }: Props) {
+export function Results({ result, catalog, onRefresh, onUpload, uploading, pdfButton }: Props) {
   const [internal, setInternal] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
   if (!result) return <aside className="results"><p className="muted">Calculating…</p></aside>;
@@ -83,7 +84,7 @@ export function Results({ result, catalog, onRefresh, onUpload, uploading }: Pro
         <div><span>Subtotal</span><span>{money(t.subtotal)}</span></div>
         {t.discount > 0 && <div className="good"><span>Discount</span><span>−{money(t.discount)}</span></div>}
         <div><span>Net</span><span>{money(t.net)}</span></div>
-        <div><span>VAT</span><span>{money(t.vat)}</span></div>
+        <div><span>VAT ({t.net ? Math.round((t.vat / t.net) * 100) : 0}%)</span><span>{money(t.vat)}</span></div>
         <div className="grand"><span>Total</span><span>{money(t.gross)}</span></div>
         {internal && (
           <div className="internal">
@@ -92,6 +93,21 @@ export function Results({ result, catalog, onRefresh, onUpload, uploading }: Pro
           </div>
         )}
       </div>
+
+      {result.payments.length > 0 && (
+        <>
+          <h3>Payment schedule</h3>
+          <table className="lines">
+            <tbody>
+              {result.payments.map((p, i) => (
+                <tr key={i}><td>{p.pct}% · {p.label}</td><td className="n">{money(p.amount)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {pdfButton}
 
       <h3>Supplier availability</h3>
       <table className="lines">

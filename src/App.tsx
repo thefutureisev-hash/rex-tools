@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Catalog, ExtraInput, Product, Settings, HouseTypeInput, QuoteInput, QuoteResult } from '../shared/types';
 import { calculate, fetchCatalog, fetchSettings, uid, uploadMidsummer } from './api';
 import { HouseTypeCard } from './components/HouseTypeCard';
+import { developerPdfData } from '../shared/quoteDocs';
 import { ConfirmButton } from './components/ConfirmButton';
+import { GeneratePdfButton } from './components/GeneratePdfButton';
+import { PaymentScheduleEditor } from './components/PaymentScheduleEditor';
 import { ResidentialQuote } from './components/ResidentialQuote';
 import { Results } from './components/Results';
 
@@ -193,7 +196,7 @@ export default function App() {
           </section>
 
           <section className="card">
-            <h2>Discount &amp; VAT</h2>
+            <h2>Discount, VAT &amp; payment terms</h2>
             <div className="grid">
               <label>Multi-plot labour discount
                 <div className="row">
@@ -223,10 +226,23 @@ export default function App() {
                 </select>
               </label>
             </div>
+            <h3>Payment schedule</h3>
+            <PaymentScheduleEditor
+              value={quote.paymentSchedule}
+              standard={settings?.developerPaymentSchedule ?? []}
+              onChange={(v) => setQuote((q) => ({ ...q, paymentSchedule: v }))}
+            />
           </section>
         </div>
 
         <Results
+          pdfButton={
+            <GeneratePdfButton
+              project={quote.project.siteName || quote.project.clientName}
+              disabled={!result || !catalog || !settings || result.totals.plots === 0}
+              build={() => (result && catalog && settings ? developerPdfData(quote, result, settings, catalog) : null)}
+            />
+          }
           result={result}
           catalog={catalog}
           onRefresh={() => loadCatalog(true)}

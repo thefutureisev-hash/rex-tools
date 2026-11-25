@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { solarPrice, type ResidentialInput, type ResidentialResult } from '../../shared/residential';
-import type { Catalog, Settings } from '../../shared/types';
+import { ORIENTATION_LABELS } from '../../shared/pricing';
+import { residentialPdfData } from '../../shared/quoteDocs';
+import type { Catalog, Orientation, Settings } from '../../shared/types';
 import { calculateResidential, money, num, uid } from '../api';
 import { defaultPanel } from '../App';
 import { ConfirmButton } from './ConfirmButton';
+import { GeneratePdfButton } from './GeneratePdfButton';
+import { PaymentScheduleEditor } from './PaymentScheduleEditor';
 
 const DRAFT_KEY = 'rex-residential-draft';
 
@@ -34,6 +38,8 @@ export function ResidentialQuote({ catalog, settings }: { catalog: Catalog | nul
   const [result, setResult] = useState<ResidentialResult | null>(null);
   const [error, setError] = useState('');
   const [internal, setInternal] = useState(true);
+  // The design image stays in memory only (not saved with the draft)
+  const [image, setImage] = useState<{ bytes: Uint8Array; type: 'png' | 'jpg'; name: string } | null>(null);
 
   const products = catalog?.products ?? [];
   const panels = products.filter((p) => p.category === 'panel').sort((a, b) => (a.watts ?? 0) - (b.watts ?? 0) || a.costPrice - b.costPrice);
@@ -122,6 +128,19 @@ export function ResidentialQuote({ catalog, settings }: { catalog: Catalog | nul
                 {[0, 5, 10, 15, 20].map((k) => <option key={k} value={k}>{k ? `${k} kWh` : 'No battery'}</option>)}
               </select>
             </label>
+            <label>Orientation
+              <select value={q.orientation ?? 'S'} onChange={(e) => set('orientation', e.target.value as Orientation)}>
+                {Object.entries(ORIENTATION_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </label>
+            <label className="span2">Design image for the quote (optional)
+              <input type="file" accept="image/png,image/jpeg" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) { setImage(null); return; }
+                setImage({ bytes: new Uint8Array(await file.arrayBuffer()), type: file.type === 'image/png' ? 'png' : 'jpg', name: file.name });
+              }} />
+              {image && <span className="small muted">{image.name} · <button type="button" className="link" onClick={() => setImage(null)}>Remove</button></span>}
+            </label>
           </div>
         </section>
 
@@ -149,7 +168,7 @@ export function ResidentialQuote({ catalog, settings }: { catalog: Catalog | nul
         </section>
 
         <section className="card">
-          <h2>Discount &amp; VAT</h2>
+          <h2>Discount, VAT &amp; payment terms</h2>
           <div className="grid">
             <label>Discount
               <div className="row">
@@ -163,10 +182,18 @@ export function ResidentialQuote({ catalog, settings }: { catalog: Catalog | nul
             <label>VAT rate
               <select value={q.vatRate} onChange={(e) => set('vatRate', +e.target.value)}>
                 <option value={0}>0% (residential solar &amp; batteries)</option>
+                <option value={5}>5%</option>
                 <option value={20}>20% (standard)</option>
               </select>
             </label>
           </div>
+          <h3>Payment schedule</h3>
+          <PaymentScheduleEditor
+            value={q.paymentSchedule}
+            standard={rs?.paymentSchedule ?? []}
+            onChange={(v) => set('paymentSchedule', v)}
+          />
+          <p className="muted small">Finance through the Warm Homes scheme will be added here once it's set up.</p>
         </section>
 
         {rs && (
@@ -204,7 +231,7 @@ export function ResidentialQuote({ catalog, settings }: { catalog: Catalog | nul
         {!result ? <p className="muted">Calculating…</p> : (
           <>
             <div className="kpis two">
-              <div><b>{num(result.kWp, 2)} kWp</b><span>Solar</span></div>
+              <div><b>{num(result.kWp, 2)} kWp</b><span>Solar · {num(result.annualKwh)} kWh/yr</span></div>
               <div><b>{q.batteryKwh ? `${q.batteryKwh} kWh` : 'None'}</b><span>Battery</span></div>
             </div>
             <table className="lines">
@@ -239,6 +266,13 @@ export function ResidentialQuote({ catalog, settings }: { catalog: Catalog | nul
                 ))}
               </tbody>
             </table>
+            <GeneratePdfButton
+              project={q.client.address || q.client.name}
+              disabled={!catalog || !settings || result.kWp <= 0}
+              build={() => (catalog && settings
+                ? residentialPdfData(q, result, settings, catalog, image ? { bytes: image.bytes, type: image.type } : undefined)
+                : null)}
+            />
             {result.warnings.map((w) => <p key={w} className="warn">{w}</p>)}
           </>
         )}

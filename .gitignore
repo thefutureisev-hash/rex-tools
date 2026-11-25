@@ -5,3 +5,4 @@ dist
 data/private
 src/static-data.json
 dist-static
+src/static-template.json

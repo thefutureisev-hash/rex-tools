@@ -4,6 +4,7 @@ import { priceQuote } from '../shared/pricing';
 import { priceResidential, type ResidentialInput } from '../shared/residential';
 import type { QuoteInput } from '../shared/types';
 import { getSettings } from './settings';
+import { readPrivateFile } from './storage';
 import { clearCatalogCache, getCatalog } from './suppliers';
 import { importMidsummerSheet } from './suppliers/midsummerProvider';
 
@@ -34,6 +35,16 @@ app.post(
     }
   },
 );
+
+// The prepared Canva quotation template (kept outside git)
+app.get('/api/template/solar', async (_req, res) => {
+  const pdf = await readPrivateFile('templates/solar-quote-template.pdf');
+  if (!pdf) {
+    res.status(404).json({ error: 'The quotation template has not been set up on the server yet.' });
+    return;
+  }
+  res.type('application/pdf').send(pdf);
+});
 
 app.get('/api/settings', async (_req, res) => {
   res.json(await getSettings());

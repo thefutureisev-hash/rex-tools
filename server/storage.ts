@@ -21,3 +21,17 @@ export async function writePrivateJson(name: string, data: unknown) {
   await mkdir(PRIVATE_DIR, { recursive: true });
   await writeFile(path.join(PRIVATE_DIR, name), JSON.stringify(data, null, 1));
 }
+
+export async function readPrivateFile(name: string): Promise<Buffer | null> {
+  try {
+    return await readFile(path.join(PRIVATE_DIR, name));
+  } catch {
+    return null;
+  }
+}
+
+export async function writePrivateFile(name: string, data: Uint8Array) {
+  const file = path.join(PRIVATE_DIR, name);
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, data);
+}

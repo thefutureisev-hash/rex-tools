@@ -266,5 +266,63 @@
     "roofAdjustmentPerPanel": {
       "in_roof": 90
     }
+  },
+  "developerPaymentSchedule": [
+    {
+      "pct": 60,
+      "label": "On acceptance of quotation"
+    },
+    {
+      "pct": 40,
+      "label": "Prior to installation"
+    }
+  ],
+  "pdf": {
+    "validityDays": 30,
+    "vatNotes": {
+      "0": "VAT at 0%: zero-rated for new-build dwellings / energy-saving materials. If the criteria are not met, VAT will be charged at the applicable rate.",
+      "5": "VAT charged at the reduced rate of 5%.",
+      "20": "VAT charged at the standard rate of 20%."
+    },
+    "developer": {
+      "notes": [
+        "Prices are per unit as listed and exclude scaffolding, electrical works beyond the AC isolator and MCS certification unless shown above.",
+        "Equipment is subject to availability at the time of order; equivalent alternatives may be offered."
+      ],
+      "included": [
+        "Supply and installation of solar panels, mounting system and inverter for each unit",
+        "DC cabling, DC isolator, generation meter, AC isolator and cabling to the isolator",
+        "Testing and commissioning",
+        "DNO notification (G98) or application (G99) where required",
+        "Handover documentation"
+      ],
+      "excluded": [
+        "Scaffolding and edge protection unless listed",
+        "Electrical works beyond the AC isolator (e.g. consumer unit changes)",
+        "MCS certification unless listed",
+        "Structural surveys and roof works",
+        "Builder's work, making good and decoration"
+      ]
+    },
+    "residential": {
+      "notes": [
+        "Price includes standard installation, scaffolding allowance (unless stated), commissioning, MCS certification and DNO notification.",
+        "Estimated generation is a guide only and depends on weather, shading and usage."
+      ],
+      "included": [
+        "Supply and installation of solar panels, mounting system and inverter",
+        "Battery storage where listed",
+        "Scaffolding allowance unless stated otherwise",
+        "DC and AC cabling, isolators and generation meter",
+        "Testing, commissioning and monitoring app set-up",
+        "MCS certificate, DNO notification and handover pack"
+      ],
+      "excluded": [
+        "Consumer unit upgrades or rewiring unless listed",
+        "Roof repairs or structural works",
+        "Bird protection, backup supply (EPS) and other extras unless listed",
+        "Making good and decoration"
+      ]
+    }
   }
 }

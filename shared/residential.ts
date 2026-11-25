@@ -1,5 +1,5 @@
 import { priceQuote, round2 } from './pricing';
-import type { Catalog, Settings } from './types';
+import type { Catalog, Orientation, PaymentStage, Settings } from './types';
 
 /**
  * Residential solar uses REX's fixed selling-price model (from the
@@ -55,6 +55,7 @@ export interface ResidentialInput {
   panelSku: string;
   panelCount: number;
   roof: ResidentialRoof;
+  orientation?: Orientation;
   systemTypeId: string;
   batteryKwh: number;
   /** false = scaffolding not needed / provided by the builder */
@@ -63,6 +64,8 @@ export interface ResidentialInput {
   extras: { id: string; description: string; price: number }[];
   discount: { type: 'percent' | 'amount'; value: number };
   vatRate: number;
+  /** Payment stages for this quote; null = the default residential schedule */
+  paymentSchedule?: PaymentStage[] | null;
 }
 
 export interface ResidentialLine {
@@ -72,6 +75,10 @@ export interface ResidentialLine {
 
 export interface ResidentialResult {
   kWp: number;
+  /** Estimated annual generation, kWh */
+  annualKwh: number;
+  /** Inverter used in the cost estimate */
+  inverterName: string | null;
   lines: ResidentialLine[];
   subtotal: number;
   discount: number;
@@ -153,7 +160,12 @@ export function priceResidential(
   const net = round2(subtotal - discount);
   const vat = round2((net * input.vatRate) / 100);
   const gross = round2(net + vat);
-  const payments = s.paymentSchedule.map((p) => ({ ...p, amount: round2((gross * p.pct) / 100) }));
+  const schedule = input.paymentSchedule?.length ? input.paymentSchedule : s.paymentSchedule;
+  const payments = schedule.map((p) => ({ ...p, amount: round2((gross * p.pct) / 100) }));
+  if (Math.abs(schedule.reduce((t, p) => t + p.pct, 0) - 100) > 0.01) warnings.push('Payment stages do not add up to 100%.');
+  const orientation = input.orientation ?? 'S';
+  const annualKwh = Math.round(kWp * settings.specificYield[orientation]);
+  let inverterName: string | null = null;
 
   // Internal cost estimate, using the developer engine for one plot
   let cost: ResidentialResult['cost'] = null;
@@ -163,12 +175,14 @@ export function priceResidential(
       project: { clientName: '', siteName: '', siteAddress: '', reference: '' },
       houseTypes: [{
         id: 'r', name: '', plots: 1, panelSku: input.panelSku, panelCount: input.panelCount,
-        roofType: input.roof === 'flat' ? 'flat' : 'pitched_tile', orientation: 'S', arrays: 1, phase: 1,
+        roofType: input.roof === 'flat' ? 'flat' : 'pitched_tile', orientation, arrays: orientation === 'E_W' && input.roof !== 'flat' ? 2 : 1, phase: 1,
         batterySku: null, inverterSku: null, dcCableMetres: s.cost.dcCableMetres,
         scaffoldPerPlot: input.scaffoldNeeded ? s.cost.scaffold : 0,
       }],
       extras: [], discount: { type: 'percent', value: 0 }, vatRate: 0, labourDiscountPct: 0,
     }, catalog, settings);
+    const inv = dev.houseTypes[0].inverter;
+    inverterName = inv ? `${inv.brand} ${inv.name}` : null;
     const breakdown: ResidentialLine[] = [
       { description: 'Solar kit, mounting, electrical, labour' + (input.scaffoldNeeded ? ', scaffolding' : ''), amount: dev.totals.cost },
       { description: 'MCS certification', amount: s.cost.mcs },
@@ -190,7 +204,7 @@ export function priceResidential(
 
   const margin = cost ? round2(net - cost.total) : null;
   return {
-    kWp, lines, subtotal, discount, net, vat, gross, payments, cost, margin,
+    kWp, annualKwh, inverterName, lines, subtotal, discount, net, vat, gross, payments, cost, margin,
     marginPct: cost && net > 0 ? round2(((net - cost.total) / net) * 100) : null,
     warnings,
   };

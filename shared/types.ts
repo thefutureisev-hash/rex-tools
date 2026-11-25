@@ -95,6 +95,13 @@ export interface QuoteInput {
   vatRate: number;
   /** Override the automatic multi-plot labour discount (percent); null = automatic */
   labourDiscountPct?: number | null;
+  /** Payment stages for this quote; null = the default developer schedule */
+  paymentSchedule?: PaymentStage[] | null;
+}
+
+export interface PaymentStage {
+  pct: number;
+  label: string;
 }
 
 // ---------- Settings ----------
@@ -123,6 +130,13 @@ export interface Settings {
   ballast: { blockCost: number; blocksPerPanelSouth: number; blocksPerPanelEW: number };
   /** One-click optional extras offered on the form, with our default cost and, optionally, a fixed price */
   optionalExtras: { description: string; cost: number; price?: number; per: 'plot' | 'project' }[];
+  developerPaymentSchedule: PaymentStage[];
+  pdf: {
+    validityDays: number;
+    developer: { notes: string[]; included: string[]; excluded: string[] };
+    residential: { notes: string[]; included: string[]; excluded: string[] };
+    vatNotes: Record<string, string>;
+  };
   /** Developer selling price for the solar system: perUnit + perPanel × panels, per plot */
   developerPricing: {
     perUnit: number;
@@ -203,5 +217,6 @@ export interface QuoteResult {
     labourDiscountPct: number;
   };
   availability: AvailabilityRow[];
+  payments: { pct: number; label: string; amount: number }[];
   warnings: string[];
 }

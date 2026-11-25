@@ -357,9 +357,17 @@ export function priceQuote(input: QuoteInput, catalog: Catalog, settings: Settin
     warnings.push('The supplier does not publish stock levels; confirm availability before ordering.');
   }
 
+  const gross = round2(net + vat);
+  const schedule = input.paymentSchedule?.length ? input.paymentSchedule : settings.developerPaymentSchedule ?? [];
+  const payments = schedule.map((p) => ({ ...p, amount: round2((gross * p.pct) / 100) }));
+  if (schedule.length && Math.abs(schedule.reduce((t, p) => t + p.pct, 0) - 100) > 0.01) {
+    warnings.push('Payment stages do not add up to 100%.');
+  }
+
   return {
     houseTypes,
     projectLines,
+    payments,
     totals: {
       plots,
       kWp: round2(houseTypes.reduce((s, h) => s + h.kWp * h.plots, 0)),
@@ -369,7 +377,7 @@ export function priceQuote(input: QuoteInput, catalog: Catalog, settings: Settin
       discount,
       net,
       vat,
-      gross: round2(net + vat),
+      gross,
       margin,
       marginPct: net > 0 ? round2((margin / net) * 100) : 0,
       labourDiscountPct,
