@@ -1,35 +1,261 @@
 {
-  "markup": { "panel": 25, "inverter": 25, "battery": 20, "mounting": 30, "electrical": 30, "labour": 35, "access": 15, "extras": 20 },
+  "markup": {
+    "panel": 25,
+    "inverter": 25,
+    "battery": 20,
+    "mounting": 30,
+    "electrical": 30,
+    "labour": 35,
+    "access": 15,
+    "extras": 20
+  },
   "mounting": {
-    "pitched_tile":  { "perPanel": 27.40, "perArray": 20 },
-    "pitched_slate": { "perPanel": 43.70, "perArray": 20 },
-    "in_roof":       { "perPanel": 68.20, "perArray": 70 },
-    "flat":          { "perPanel": 42.00, "perArray": 15 },
-    "metal":         { "perPanel": 14.90, "perArray": 10 }
+    "pitched_tile": {
+      "perPanel": 27.4,
+      "perArray": 20
+    },
+    "pitched_slate": {
+      "perPanel": 43.7,
+      "perArray": 20
+    },
+    "in_roof": {
+      "perPanel": 68.2,
+      "perArray": 70
+    },
+    "flat": {
+      "perPanel": 42.0,
+      "perArray": 15
+    },
+    "metal": {
+      "perPanel": 14.9,
+      "perArray": 10
+    }
   },
   "flatEastWestPerPanel": 24.75,
-  "ballast": { "blockCost": 2.57, "blocksPerPanelSouth": 3, "blocksPerPanelEW": 1.5 },
-  "labour": {
-    "flatCurve": [[6, 800], [12, 1000], [20, 1500], [40, 2800], [72, 3500], [85, 3650]],
-    "beyondPerPanel": 35,
-    "roofFactor": { "flat": 1, "pitched_tile": 1, "pitched_slate": 1, "in_roof": 1, "metal": 1 },
-    "batteryInstall": 300,
-    "multiPlotDiscount": [[1, 0], [2, 10], [5, 15], [10, 20], [25, 25]]
+  "ballast": {
+    "blockCost": 2.57,
+    "blocksPerPanelSouth": 3,
+    "blocksPerPanelEW": 1.5
   },
-  "electrical": { "fixedPerPlot": 100, "dcCablePer100m": 84.15 },
+  "labour": {
+    "flatCurve": [
+      [
+        6,
+        800
+      ],
+      [
+        12,
+        1000
+      ],
+      [
+        20,
+        1500
+      ],
+      [
+        40,
+        2800
+      ],
+      [
+        72,
+        3500
+      ],
+      [
+        85,
+        3650
+      ]
+    ],
+    "beyondPerPanel": 35,
+    "roofFactor": {
+      "flat": 1,
+      "pitched_tile": 1,
+      "pitched_slate": 1,
+      "in_roof": 1,
+      "metal": 1
+    },
+    "batteryInstall": 300,
+    "multiPlotDiscount": [
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        10
+      ],
+      [
+        5,
+        15
+      ],
+      [
+        10,
+        20
+      ],
+      [
+        25,
+        25
+      ]
+    ]
+  },
+  "electrical": {
+    "fixedPerPlot": 100,
+    "dcCablePer100m": 84.15
+  },
   "perPlotCosts": [],
   "optionalExtras": [
-    { "description": "MCS certification", "cost": 400, "per": "plot" },
-    { "description": "Scaffolding (whole site)", "cost": 0, "per": "project" },
-    { "description": "Electrical works beyond AC isolator", "cost": 0, "per": "plot" },
-    { "description": "Bird mesh", "cost": 0, "per": "plot" },
-    { "description": "EPS / backup switch", "cost": 0, "per": "plot" },
-    { "description": "Optimisers", "cost": 0, "per": "plot" },
-    { "description": "Site survey", "cost": 0, "per": "project" },
-    { "description": "Design & SAP support", "cost": 0, "per": "project" }
+    {
+      "description": "MCS certification",
+      "cost": 400,
+      "per": "plot"
+    },
+    {
+      "description": "Scaffolding (whole site)",
+      "cost": 0,
+      "per": "project"
+    },
+    {
+      "description": "Electrical works beyond AC isolator",
+      "cost": 0,
+      "per": "plot"
+    },
+    {
+      "description": "Bird mesh",
+      "cost": 0,
+      "per": "plot"
+    },
+    {
+      "description": "EPS / backup switch",
+      "cost": 0,
+      "per": "plot"
+    },
+    {
+      "description": "Optimisers",
+      "cost": 0,
+      "per": "plot"
+    },
+    {
+      "description": "Site survey",
+      "cost": 0,
+      "per": "project"
+    },
+    {
+      "description": "Design & SAP support",
+      "cost": 0,
+      "per": "project"
+    }
   ],
-  "specificYield": { "S": 920, "SE_SW": 880, "E_W": 760, "E": 720, "W": 720, "N": 520 },
-  "maxDcAcRatio": { "default": 1.3, "E_W": 1.5 },
+  "specificYield": {
+    "S": 920,
+    "SE_SW": 880,
+    "E_W": 760,
+    "E": 720,
+    "W": 720,
+    "N": 520
+  },
+  "maxDcAcRatio": {
+    "default": 1.3,
+    "E_W": 1.5
+  },
   "g98LimitKw": 3.68,
-  "g99ApplicationCost": 450
+  "g99ApplicationCost": 450,
+  "residential": {
+    "anchors": [
+      [
+        3,
+        6395
+      ],
+      [
+        5,
+        7495
+      ],
+      [
+        6,
+        8195
+      ]
+    ],
+    "belowPerKwp": 500,
+    "abovePerKwp": 625,
+    "flatRoofUplift": 0.1,
+    "roundingOffset": 5,
+    "scaffoldDeduction": 1000,
+    "kwpRange": [
+      2,
+      10
+    ],
+    "systemTypes": [
+      {
+        "id": "standard",
+        "label": "Standard (Fox / SolaX / Growatt)",
+        "solarUplift": 0,
+        "batteryPer5kWh": 1500
+      },
+      {
+        "id": "sigenergy",
+        "label": "Sigenergy SigenStor",
+        "solarUplift": 1000,
+        "batteryPer5kWh": 2250,
+        "unconfirmed": true
+      }
+    ],
+    "extrasPresets": [
+      {
+        "description": "Nicholson Rooftrak fixings",
+        "price": 1600
+      },
+      {
+        "description": "EPS / backup",
+        "price": 0
+      },
+      {
+        "description": "Bird protection",
+        "price": 0
+      },
+      {
+        "description": "Long cable route",
+        "price": 0
+      },
+      {
+        "description": "Access / roof complexity",
+        "price": 0
+      },
+      {
+        "description": "Extra scaffolding",
+        "price": 0
+      }
+    ],
+    "paymentSchedule": [
+      {
+        "pct": 20,
+        "label": "Deposit on acceptance of quotation"
+      },
+      {
+        "pct": 50,
+        "label": "Before installation, once the date is confirmed and materials allocated"
+      },
+      {
+        "pct": 25,
+        "label": "On practical completion of the installation"
+      },
+      {
+        "pct": 5,
+        "label": "After the MCS certificate, DNO documentation, warranties and handover pack"
+      }
+    ],
+    "cost": {
+      "scaffold": 1000,
+      "mcs": 400,
+      "dcCableMetres": 25,
+      "batteryPer5kWh": {
+        "standard": 900,
+        "sigenergy": 1500
+      },
+      "hybridInverterExtra": {
+        "standard": 380,
+        "sigenergy": 380
+      },
+      "systemExtra": {
+        "standard": 0,
+        "sigenergy": 700
+      }
+    }
+  }
 }

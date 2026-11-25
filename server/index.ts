@@ -1,6 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { priceQuote } from '../shared/pricing';
+import { priceResidential, type ResidentialInput } from '../shared/residential';
 import type { QuoteInput } from '../shared/types';
 import { getSettings } from './settings';
 import { clearCatalogCache, getCatalog } from './suppliers';
@@ -36,6 +37,16 @@ app.post(
 
 app.get('/api/settings', async (_req, res) => {
   res.json(await getSettings());
+});
+
+app.post('/api/residential/calculate', async (req, res) => {
+  const input = req.body as ResidentialInput;
+  if (!input || typeof input.panelCount !== 'number') {
+    res.status(400).json({ error: 'Invalid quote input' });
+    return;
+  }
+  const [catalog, settings] = await Promise.all([getCatalog(), getSettings()]);
+  res.json(priceResidential(input, catalog, settings));
 });
 
 app.post('/api/quote/calculate', async (req, res) => {

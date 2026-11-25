@@ -1,8 +1,19 @@
+import type { ResidentialInput, ResidentialResult } from '../shared/residential';
 import type { Catalog, QuoteInput, QuoteResult, Settings } from '../shared/types';
 
 export async function fetchCatalog(refresh = false): Promise<Catalog> {
   const r = await fetch(`/api/catalog${refresh ? '?refresh=1' : ''}`);
   if (!r.ok) throw new Error('Could not load supplier catalogue');
+  return r.json();
+}
+
+export async function calculateResidential(input: ResidentialInput): Promise<ResidentialResult> {
+  const r = await fetch('/api/residential/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!r.ok) throw new Error('Pricing failed');
   return r.json();
 }
 

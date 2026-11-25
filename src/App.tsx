@@ -2,13 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Catalog, ExtraInput, Product, Settings, HouseTypeInput, QuoteInput, QuoteResult } from '../shared/types';
 import { calculate, fetchCatalog, fetchSettings, uid, uploadMidsummer } from './api';
 import { HouseTypeCard } from './components/HouseTypeCard';
+import { ResidentialQuote } from './components/ResidentialQuote';
 import { Results } from './components/Results';
 
 const DRAFT_KEY = 'rex-quote-draft';
 
-/** Best-value panel (lowest £/W) without a caveat such as "only sold with mounting" */
-const defaultPanel = (products: Product[]) => {
-  const panels = products.filter((p) => p.category === 'panel' && p.watts);
+/**
+ * Best-value panel (lowest £/W) of a domestic size, without a caveat such as
+ * "only sold with mounting". 500W+ panels are too large for most house roofs.
+ */
+export const defaultPanel = (products: Product[]) => {
+  const all = products.filter((p) => p.category === 'panel' && p.watts);
+  const domestic = all.filter((p) => p.watts! <= 500);
+  const panels = domestic.length ? domestic : all;
   const pool = panels.filter((p) => !p.notes).length ? panels.filter((p) => !p.notes) : panels;
   return pool.sort((a, b) => a.costPrice / a.watts! - b.costPrice / b.watts!)[0]?.sku ?? '';
 };
@@ -49,12 +55,15 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [uploading, setUploading] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [tab, setTab] = useState<'developer' | 'residential'>(() => {
+    try { return localStorage.getItem('rex-tab') === 'residential' ? 'residential' : 'developer'; } catch { return 'developer'; }
+  });
+  useEffect(() => { try { localStorage.setItem('rex-tab', tab); } catch { /* ignore */ } }, [tab]);
 
   const loadCatalog = useCallback(async (refresh = false) => {
     try {
       const c = await fetchCatalog(refresh);
       setCatalog(c);
-      // Default the panel on any house type that doesn't have one yet
       // Default the panel, and clear any choices the new price list no longer has
       const skus = new Set(c.products.map((p) => p.sku));
       const firstPanel = defaultPanel(c.products);
@@ -100,20 +109,25 @@ export default function App() {
       <header className="topbar">
         <div className="brand">Rexperts <span>Quote Builder</span></div>
         <nav className="tabs">
-          <button className="active">Solar – Developer</button>
-          <button disabled title="Coming next">Solar – Residential</button>
+          <button className={tab === 'developer' ? 'active' : ''} onClick={() => setTab('developer')}>Solar – Developer</button>
+          <button className={tab === 'residential' ? 'active' : ''} onClick={() => setTab('residential')}>Solar – Residential</button>
           <button disabled title="Coming next">Solar – Commercial</button>
           <button disabled title="Coming next">EV charging</button>
         </nav>
-        <button
-          className="link"
-          onClick={() => { if (confirm('Clear this quote and start again?')) setQuote({ ...blankQuote(), houseTypes: [newHouseType(1, firstPanel)] }); }}
-        >New quote</button>
+        {tab === 'developer' && (
+          <button
+            className="link"
+            onClick={() => { if (confirm('Clear this quote and start again?')) setQuote({ ...blankQuote(), houseTypes: [newHouseType(1, firstPanel)] }); }}
+          >New quote</button>
+        )}
       </header>
 
       {error && <p className="error">{error}</p>}
       {notice && <p className="notice" onClick={() => setNotice('')}>{notice}</p>}
 
+      {tab === 'residential' && <ResidentialQuote catalog={catalog} settings={settings} />}
+
+      {tab === 'developer' && (
       <main className="layout">
         <div className="form">
           <section className="card">
@@ -229,6 +243,7 @@ export default function App() {
           }}
         />
       </main>
+      )}
     </div>
   );
 }

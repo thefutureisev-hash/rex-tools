@@ -105,3 +105,12 @@ table.lines { width: 100%; border-collapse: collapse; font-size: 12px; margin-to
 select:disabled { background: var(--bg); color: var(--muted); }
 optgroup { font-weight: 600; }
 .unit { align-self: center; color: var(--muted); }
+
+.seg { display: flex; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; }
+.seg button { flex: 1; border: 0; background: #fff; padding: 7px 8px; color: var(--ink); font-size: 13px; }
+.seg button + button { border-left: 1px solid #d1d5db; }
+.seg button.on { background: var(--brand); color: #fff; }
+.extra.res { grid-template-columns: 1fr 120px 24px; }
+.kpis.two { grid-template-columns: repeat(2, 1fr); }
+.guide tr.hl td { background: var(--tint); font-weight: 600; }
+.internal .small { font-size: 12px; }

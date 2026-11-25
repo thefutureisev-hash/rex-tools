@@ -134,6 +134,7 @@ export interface Settings {
   /** Single-phase export above this needs a G99 application (UK) */
   g98LimitKw: number;
   g99ApplicationCost: number;
+  residential: import('./residential').ResidentialSettings;
 }
 
 // ---------- Result ----------
