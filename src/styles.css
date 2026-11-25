@@ -95,3 +95,12 @@ table.lines { width: 100%; border-collapse: collapse; font-size: 12px; margin-to
 .status.in_stock { color: var(--brand); }
 .status.partial { color: var(--warn); }
 .status.out_of_stock { color: var(--bad); }
+
+.notice { background: var(--tint); color: var(--brand); padding: 10px 24px; margin: 0; cursor: pointer; }
+.supplier { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; padding: 10px; background: var(--bg); border-radius: 8px; font-size: 13px; }
+.supplier-actions { display: flex; gap: 12px; font-size: 12px; }
+.upload { flex-direction: row; cursor: pointer; color: var(--brand); font-size: 12px; font-weight: 400; }
+.upload input { display: none; }
+.status.unknown { color: var(--muted); }
+select:disabled { background: var(--bg); color: var(--muted); }
+optgroup { font-weight: 600; }

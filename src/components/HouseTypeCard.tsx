@@ -11,13 +11,20 @@ interface Props {
   onDuplicate: () => void;
 }
 
-const stockLabel = (p: Product) => (p.stock > 0 ? `${p.stock} in stock` : `out of stock, ${p.leadTimeDays} days`);
+const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const stockLabel = (p: Product) =>
+  p.stock === null ? '' : p.stock > 0 ? `, ${p.stock} in stock` : `, out of stock ${p.leadTimeDays}d`;
+const by = <T,>(f: (x: T) => number) => (a: T, b: T) => f(a) - f(b);
 
 export function HouseTypeCard({ value, products, result, onChange, onRemove, onDuplicate }: Props) {
   const set = <K extends keyof HouseTypeInput>(k: K, v: HouseTypeInput[K]) => onChange({ ...value, [k]: v });
-  const panels = products.filter((p) => p.category === 'panel');
-  const inverters = products.filter((p) => p.category === 'inverter');
-  const batteries = products.filter((p) => p.category === 'battery');
+  const panels = products.filter((p) => p.category === 'panel').sort(by((p) => (p.watts ?? 0) * 1e4 + p.costPrice));
+  const inverters = products.filter((p) => p.category === 'inverter').sort(by((p) => (p.acKw ?? 0) * 1e4 + p.costPrice));
+  const batteries = products.filter((p) => p.category === 'battery').sort(by((p) => (p.capacityKwh ?? 0) * 1e4 + p.costPrice));
+  // Only offer bundles on the right phase, to keep the list manageable
+  const bundles = products
+    .filter((p) => p.category === 'bundle' && (p.phase === value.phase || p.sku === value.batterySku))
+    .sort(by((p) => (p.acKw ?? 0) * 1e4 + (p.capacityKwh ?? 0)));
 
   return (
     <section className="card">
@@ -48,7 +55,7 @@ export function HouseTypeCard({ value, products, result, onChange, onRemove, onD
         <label className="span2">Panel
           <select value={value.panelSku} onChange={(e) => set('panelSku', e.target.value)}>
             {panels.map((p) => (
-              <option key={p.sku} value={p.sku}>{p.brand} {p.name} ({stockLabel(p)})</option>
+              <option key={p.sku} value={p.sku}>{p.brand} {p.name} ({gbp(p.costPrice)}{stockLabel(p)})</option>
             ))}
           </select>
         </label>
@@ -70,16 +77,29 @@ export function HouseTypeCard({ value, products, result, onChange, onRemove, onD
           </select>
         </label>
 
-        <label>Battery
+        <label className="span2">Battery
           <select value={value.batterySku ?? ''} onChange={(e) => set('batterySku', e.target.value || null)}>
             <option value="">No battery</option>
-            {batteries.map((p) => <option key={p.sku} value={p.sku}>{p.brand} {p.name} ({stockLabel(p)})</option>)}
+            {batteries.length > 0 && (
+              <optgroup label="Battery only (matching hybrid inverter auto-selected)">
+                {batteries.map((p) => <option key={p.sku} value={p.sku}>{p.brand} {p.name} ({gbp(p.costPrice)}{stockLabel(p)})</option>)}
+              </optgroup>
+            )}
+            {bundles.length > 0 && (
+              <optgroup label={`Inverter + battery bundles (${value.phase}-phase)`}>
+                {bundles.map((p) => <option key={p.sku} value={p.sku}>{p.brand} {p.name} ({gbp(p.costPrice)})</option>)}
+              </optgroup>
+            )}
           </select>
         </label>
-        <label>Inverter
-          <select value={value.inverterSku ?? ''} onChange={(e) => set('inverterSku', e.target.value || null)}>
+        <label className="span2">Inverter
+          <select
+            value={value.inverterSku ?? ''}
+            disabled={products.find((p) => p.sku === value.batterySku)?.category === 'bundle'}
+            onChange={(e) => set('inverterSku', e.target.value || null)}
+          >
             <option value="">Auto-select</option>
-            {inverters.map((p) => <option key={p.sku} value={p.sku}>{p.brand} {p.name}</option>)}
+            {inverters.map((p) => <option key={p.sku} value={p.sku}>{p.brand} {p.name} ({gbp(p.costPrice)})</option>)}
           </select>
         </label>
       </div>
@@ -89,7 +109,9 @@ export function HouseTypeCard({ value, products, result, onChange, onRemove, onD
           <span><strong>{num(result.kWp, 2)} kWp</strong> per plot</span>
           <span>{num(result.annualKwhPerPlot)} kWh/yr</span>
           <span className="muted">
-            {result.inverter ? `${value.inverterSku ? '' : 'Auto: '}${result.inverter.name}` : 'No inverter'}
+            {result.inverter
+              ? `${result.inverter.category === 'bundle' ? 'Bundle: ' : value.inverterSku ? '' : 'Auto: '}${result.inverter.brand} ${result.inverter.name}`
+              : 'No inverter'}
           </span>
         </div>
       )}

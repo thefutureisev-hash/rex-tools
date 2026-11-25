@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Catalog, ExtraInput, HouseTypeInput, QuoteInput, QuoteResult } from '../shared/types';
-import { calculate, fetchCatalog, uid } from './api';
+import { calculate, fetchCatalog, uid, uploadMidsummer } from './api';
 import { HouseTypeCard } from './components/HouseTypeCard';
 import { Results } from './components/Results';
 
@@ -34,14 +34,26 @@ export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [result, setResult] = useState<QuoteResult | null>(null);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const loadCatalog = useCallback(async (refresh = false) => {
     try {
       const c = await fetchCatalog(refresh);
       setCatalog(c);
       // Default the panel on any house type that doesn't have one yet
+      // Default the panel, and clear any choices the new price list no longer has
+      const skus = new Set(c.products.map((p) => p.sku));
       const firstPanel = c.products.find((p) => p.category === 'panel')?.sku ?? '';
-      setQuote((q) => ({ ...q, houseTypes: q.houseTypes.map((h) => (h.panelSku ? h : { ...h, panelSku: firstPanel })) }));
+      setQuote((q) => ({
+        ...q,
+        houseTypes: q.houseTypes.map((h) => ({
+          ...h,
+          panelSku: skus.has(h.panelSku) ? h.panelSku : firstPanel,
+          batterySku: h.batterySku && skus.has(h.batterySku) ? h.batterySku : null,
+          inverterSku: h.inverterSku && skus.has(h.inverterSku) ? h.inverterSku : null,
+        })),
+      }));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -86,6 +98,7 @@ export default function App() {
       </header>
 
       {error && <p className="error">{error}</p>}
+      {notice && <p className="notice" onClick={() => setNotice('')}>{notice}</p>}
 
       <main className="layout">
         <div className="form">
@@ -171,7 +184,25 @@ export default function App() {
           </section>
         </div>
 
-        <Results result={result} catalog={catalog} onRefresh={() => loadCatalog(true)} />
+        <Results
+          result={result}
+          catalog={catalog}
+          onRefresh={() => loadCatalog(true)}
+          uploading={uploading}
+          onUpload={async (file) => {
+            setUploading(true);
+            try {
+              const s = await uploadMidsummer(file);
+              setNotice(`Midsummer prices${s.priceDate ? ` dated ${s.priceDate}` : ''} loaded: ${s.panels} panels, ${s.inverters} inverters, ${s.batteries} batteries, ${s.bundles} inverter + battery bundle options.`);
+              setError('');
+              await loadCatalog(true);
+            } catch (e) {
+              setError((e as Error).message);
+            } finally {
+              setUploading(false);
+            }
+          }}
+        />
       </main>
     </div>
   );

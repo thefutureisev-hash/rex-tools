@@ -26,5 +26,20 @@ All rates, markups and yields live in `data/settings.json`.
 
 ## Suppliers
 
-Suppliers plug in via `server/suppliers/` (see `types.ts`). Prices are cached for 10 minutes.
-Currently only a **sample price list** (`data/sample-catalog.json`, fictional brands) is connected.
+Suppliers plug in via `server/suppliers/` (see `types.ts`).
+
+**Midsummer Wholesale** is loaded from their trade price sheet (.xlsx). Use
+**Upload Midsummer price sheet** in the app (bottom of the Pricing panel). The sheet is
+parsed on the server and saved to `PRICE_DATA_DIR` (default `data/private/`), which is
+**not committed**: this repo is public and trade prices must stay out of it.
+
+What the importer does:
+- Panels, inverters and batteries are read by column name, so column order can change.
+- AC-coupled inverters (SolaX FIT) are skipped: they can't run a PV array.
+- Battery modules that can't be used alone (slaves, bases, BMS/BMU boxes) are skipped;
+  batteries that need one get a note telling the user to add it as an extra.
+- Inverter + battery bundles become one product per battery size (up to 30 kWh).
+- Max DC input isn't in the sheet, so it's assumed to be 150% of the AC rating.
+- Midsummer doesn't publish stock, so availability shows "Confirm".
+
+Until a sheet is uploaded, the app falls back to a fictional sample list (`data/sample-catalog.json`).

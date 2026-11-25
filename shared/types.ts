@@ -1,6 +1,7 @@
 // ---------- Supplier catalogue ----------
 
-export type ProductCategory = 'panel' | 'inverter' | 'battery';
+/** 'bundle' = hybrid inverter + battery sold together */
+export type ProductCategory = 'panel' | 'inverter' | 'battery' | 'bundle';
 
 export interface Product {
   sku: string;
@@ -10,8 +11,8 @@ export interface Product {
   name: string;
   /** Trade cost price, ex VAT, GBP */
   costPrice: number;
-  /** Units the supplier reports in stock */
-  stock: number;
+  /** Units the supplier reports in stock; null when the supplier doesn't publish stock */
+  stock: number | null;
   /** Lead time when out of stock, in days */
   leadTimeDays: number;
   // panel
@@ -21,8 +22,12 @@ export interface Product {
   maxDcKw?: number;
   phase?: 1 | 3;
   hybrid?: boolean;
-  // battery
+  // battery / bundle
   capacityKwh?: number;
+  /** Caveats shown to the user when this product is chosen */
+  notes?: string;
+  /** Supplier product page */
+  url?: string;
 }
 
 export interface Catalog {
@@ -30,6 +35,8 @@ export interface Catalog {
   /** true when prices come from a live supplier feed, false for sample data */
   live: boolean;
   fetchedAt: string;
+  /** Date the prices were taken, for price sheets (ISO date) */
+  priceDate?: string;
   products: Product[];
 }
 
@@ -52,6 +59,7 @@ export interface HouseTypeInput {
   /** Number of separate arrays (roof faces) the panels are split over */
   arrays: number;
   phase: 1 | 3;
+  /** A standalone battery, or an inverter + battery bundle (which replaces the inverter) */
   batterySku: string | null;
   /** Force a specific inverter instead of auto-selecting */
   inverterSku: string | null;
@@ -134,9 +142,9 @@ export interface AvailabilityRow {
   sku: string;
   name: string;
   required: number;
-  stock: number;
+  stock: number | null;
   leadTimeDays: number;
-  status: 'in_stock' | 'partial' | 'out_of_stock';
+  status: 'in_stock' | 'partial' | 'out_of_stock' | 'unknown';
 }
 
 export interface QuoteResult {

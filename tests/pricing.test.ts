@@ -126,4 +126,53 @@ describe('priceQuote', () => {
     expect(panels.status).toBe('partial'); // 340 in stock
     expect(r.warnings.some((w) => w.includes('short of stock'))).toBe(true);
   });
+
+  it('uses a bundle in place of the inverter', () => {
+    const bundle: Product = {
+      sku: 'BUN-1', supplier: 'test', category: 'bundle', brand: 'Cellora', name: '3.6 kW hybrid + 5 kWh',
+      acKw: 3.6, maxDcKw: 5.4, phase: 1, hybrid: true, capacityKwh: 5, costPrice: 1500, stock: null, leadTimeDays: 0,
+    };
+    const cat = { ...catalog, products: [...products, bundle] };
+    const r = priceQuote(quote([house({ batterySku: 'BUN-1', inverterSku: 'INV-VE5.0-1' })]), cat, settings);
+    const h = r.houseTypes[0];
+    expect(h.inverter?.sku).toBe('BUN-1');
+    expect(h.lines.filter((l) => l.category === 'inverter')).toHaveLength(0);
+    expect(h.warnings.some((w) => w.includes('ignored'))).toBe(true);
+    expect(r.availability.find((a) => a.sku === 'BUN-1')?.status).toBe('unknown');
+    expect(r.warnings.some((w) => w.includes('stock levels'))).toBe(true);
+  });
+
+  it('warns when a bundle inverter is too small', () => {
+    const bundle: Product = {
+      sku: 'BUN-2', supplier: 'test', category: 'bundle', brand: 'X', name: '3 kW + 5 kWh',
+      acKw: 3, maxDcKw: 4.5, phase: 1, hybrid: true, capacityKwh: 5, costPrice: 1400, stock: null, leadTimeDays: 0,
+    };
+    const r = priceQuote(quote([house({ panelCount: 14, batterySku: 'BUN-2' })]), { ...catalog, products: [...products, bundle] }, settings);
+    expect(r.houseTypes[0].warnings.some((w) => w.includes('too small'))).toBe(true);
+  });
+
+  it('flags an oversized auto-selected inverter', () => {
+    const only8: Product[] = products.filter((p) => p.category !== 'inverter').concat({
+      sku: 'BIG', supplier: 't', category: 'inverter', brand: 'B', name: '8 kW', acKw: 8, maxDcKw: 12, phase: 1,
+      hybrid: false, costPrice: 600, stock: null, leadTimeDays: 0,
+    });
+    const r = priceQuote(quote([house()]), { ...catalog, products: only8 }, settings);
+    expect(r.houseTypes[0].warnings.some((w) => w.includes('oversized'))).toBe(true);
+  });
+
+  it('notes the price sheet date', () => {
+    const r = priceQuote(quote([house()]), { ...catalog, live: false, priceDate: '2026-10-09' }, settings);
+    expect(r.warnings.some((w) => w.includes('dated 2026-10-09'))).toBe(true);
+  });
+});
+
+describe('selectInverter brand matching', () => {
+  it('prefers a hybrid of the battery brand', () => {
+    const other: Product = {
+      sku: 'OTHER-HB', supplier: 't', category: 'inverter', brand: 'Cheapo', name: '5 kW hybrid', acKw: 5, maxDcKw: 7.5,
+      phase: 1, hybrid: true, costPrice: 100, stock: 5, leadTimeDays: 0,
+    };
+    const { inverter } = selectInverter([...products, other], 3.44, 1, true, 'S', settings, 'VoltEdge');
+    expect(inverter?.brand).toBe('VoltEdge');
+  });
 });

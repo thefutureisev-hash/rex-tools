@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { priceQuote } from '../shared/pricing';
 import type { QuoteInput } from '../shared/types';
 import { getSettings } from './settings';
-import { getCatalog } from './suppliers';
+import { clearCatalogCache, getCatalog } from './suppliers';
+import { importMidsummerSheet } from './suppliers/midsummerProvider';
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -11,6 +12,27 @@ app.use(express.json({ limit: '1mb' }));
 app.get('/api/catalog', async (req, res) => {
   res.json(await getCatalog(req.query.refresh === '1'));
 });
+
+// Upload a new Midsummer price sheet (.xlsx). Stored on the server, not in git.
+app.post(
+  '/api/suppliers/midsummer/upload',
+  express.raw({ type: () => true, limit: '20mb' }),
+  async (req, res) => {
+    try {
+      const parsed = await importMidsummerSheet(req.body as Buffer);
+      clearCatalogCache();
+      const count = (c: string) => parsed.products.filter((p) => p.category === c).length;
+      res.json({
+        priceDate: parsed.priceDate,
+        panels: count('panel'), inverters: count('inverter'),
+        batteries: count('battery'), bundles: count('bundle'),
+        skipped: parsed.skipped.length,
+      });
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  },
+);
 
 app.get('/api/settings', async (_req, res) => {
   res.json(await getSettings());

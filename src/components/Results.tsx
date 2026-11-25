@@ -27,7 +27,15 @@ function LineTable({ lines, internal, multiplier }: { lines: Line[]; internal: b
   );
 }
 
-export function Results({ result, catalog, onRefresh }: { result: QuoteResult | null; catalog: Catalog | null; onRefresh: () => void }) {
+interface Props {
+  result: QuoteResult | null;
+  catalog: Catalog | null;
+  onRefresh: () => void;
+  onUpload: (file: File) => void;
+  uploading: boolean;
+}
+
+export function Results({ result, catalog, onRefresh, onUpload, uploading }: Props) {
   const [internal, setInternal] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
   if (!result) return <aside className="results"><p className="muted">Calculating…</p></aside>;
@@ -93,19 +101,40 @@ export function Results({ result, catalog, onRefresh }: { result: QuoteResult | 
             <tr key={a.sku}>
               <td>{a.name}</td>
               <td className="n">{num(a.required)}</td>
-              <td className="n">{num(a.stock)}</td>
+              <td className="n">{a.stock === null ? '–' : num(a.stock)}</td>
               <td className={`status ${a.status}`}>
-                {a.status === 'in_stock' ? 'In stock' : a.status === 'partial' ? `Short, ${a.leadTimeDays || '?'}d` : `${a.leadTimeDays}d lead`}
+                {a.status === 'unknown' ? 'Confirm'
+                  : a.status === 'in_stock' ? 'In stock'
+                  : a.status === 'partial' ? `Short, ${a.leadTimeDays || '?'}d`
+                  : `${a.leadTimeDays}d lead`}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
       {catalog && (
-        <p className="muted small">
-          {catalog.source} · updated {new Date(catalog.fetchedAt).toLocaleTimeString('en-GB')} ·{' '}
-          <button type="button" className="link" onClick={onRefresh}>Refresh prices</button>
-        </p>
+        <div className="supplier">
+          <div>
+            <strong>{catalog.source}</strong>
+            <span className="muted small">
+              {catalog.priceDate
+                ? ` · prices dated ${new Date(catalog.priceDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                : ` · loaded ${new Date(catalog.fetchedAt).toLocaleTimeString('en-GB')}`}
+            </span>
+          </div>
+          <div className="supplier-actions">
+            <label className="link upload">
+              {uploading ? 'Uploading…' : 'Upload Midsummer price sheet'}
+              <input
+                type="file"
+                accept=".xlsx"
+                disabled={uploading}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }}
+              />
+            </label>
+            <button type="button" className="link" onClick={onRefresh}>Reload</button>
+          </div>
+        </div>
       )}
       {result.warnings.map((w) => <p key={w} className="warn">{w}</p>)}
     </aside>

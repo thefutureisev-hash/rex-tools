@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import type { SupplierProvider } from './types';
 
-/** Sample price list used until a real supplier feed is connected. */
+/** Fictional sample price list, used only when no real supplier data is loaded. */
 export const sampleSupplier: SupplierProvider = {
   name: 'Sample price list',
   live: false,
-  async fetchProducts() {
+  async load() {
     const url = new URL('../../data/sample-catalog.json', import.meta.url);
-    return JSON.parse(await readFile(url, 'utf8'));
+    return { products: JSON.parse(await readFile(url, 'utf8')) };
   },
 };
