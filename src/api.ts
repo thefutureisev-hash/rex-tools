@@ -1,13 +1,22 @@
-import type { ResidentialInput, ResidentialResult } from '../shared/residential';
+import { priceQuote } from '../shared/pricing';
+import { priceResidential, type ResidentialInput, type ResidentialResult } from '../shared/residential';
 import type { Catalog, QuoteInput, QuoteResult, Settings } from '../shared/types';
 
+// In the self-contained build the data is compiled in and prices are worked out in the browser.
+// The glob is empty in normal builds, so the JSON is only bundled when it exists.
+const staticFiles = import.meta.glob<{ catalog: Catalog; settings: Settings }>('./static-data.json', { eager: true, import: 'default' });
+const staticData = __STATIC__ ? Object.values(staticFiles)[0] : undefined;
+export const IS_STATIC = !!staticData;
+
 export async function fetchCatalog(refresh = false): Promise<Catalog> {
+  if (staticData) return staticData.catalog;
   const r = await fetch(`/api/catalog${refresh ? '?refresh=1' : ''}`);
   if (!r.ok) throw new Error('Could not load supplier catalogue');
   return r.json();
 }
 
 export async function calculateResidential(input: ResidentialInput): Promise<ResidentialResult> {
+  if (staticData) return priceResidential(input, staticData.catalog, staticData.settings);
   const r = await fetch('/api/residential/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -18,12 +27,14 @@ export async function calculateResidential(input: ResidentialInput): Promise<Res
 }
 
 export async function fetchSettings(): Promise<Settings> {
+  if (staticData) return staticData.settings;
   const r = await fetch('/api/settings');
   if (!r.ok) throw new Error('Could not load settings');
   return r.json();
 }
 
 export async function calculate(input: QuoteInput): Promise<QuoteResult> {
+  if (staticData) return priceQuote(input, staticData.catalog, staticData.settings);
   const r = await fetch('/api/quote/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

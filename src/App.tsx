@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Catalog, ExtraInput, Product, Settings, HouseTypeInput, QuoteInput, QuoteResult } from '../shared/types';
 import { calculate, fetchCatalog, fetchSettings, uid, uploadMidsummer } from './api';
 import { HouseTypeCard } from './components/HouseTypeCard';
+import { ConfirmButton } from './components/ConfirmButton';
 import { ResidentialQuote } from './components/ResidentialQuote';
 import { Results } from './components/Results';
 
@@ -115,10 +116,11 @@ export default function App() {
           <button disabled title="Coming next">EV charging</button>
         </nav>
         {tab === 'developer' && (
-          <button
-            className="link"
-            onClick={() => { if (confirm('Clear this quote and start again?')) setQuote({ ...blankQuote(), houseTypes: [newHouseType(1, firstPanel)] }); }}
-          >New quote</button>
+          <ConfirmButton
+            label="New quote"
+            confirmLabel="Click again to clear this quote"
+            onConfirm={() => setQuote({ ...blankQuote(), houseTypes: [newHouseType(1, firstPanel)] })}
+          />
         )}
       </header>
 

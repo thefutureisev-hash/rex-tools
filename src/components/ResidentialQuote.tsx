@@ -3,6 +3,7 @@ import { solarPrice, type ResidentialInput, type ResidentialResult } from '../..
 import type { Catalog, Settings } from '../../shared/types';
 import { calculateResidential, money, num, uid } from '../api';
 import { defaultPanel } from '../App';
+import { ConfirmButton } from './ConfirmButton';
 
 const DRAFT_KEY = 'rex-residential-draft';
 
@@ -65,7 +66,7 @@ export function ResidentialQuote({ catalog, settings }: { catalog: Catalog | nul
         <section className="card">
           <div className="card-head">
             <h2>Client</h2>
-            <button className="link" onClick={() => { if (confirm('Clear this quote and start again?')) setQ(blank(defaultPanel(products))); }}>New quote</button>
+            <ConfirmButton label="New quote" confirmLabel="Click again to clear" onConfirm={() => setQ(blank(defaultPanel(products)))} />
           </div>
           <div className="grid">
             <label>Name<input value={q.client.name} onChange={(e) => setClient('name', e.target.value)} /></label>
@@ -172,6 +173,7 @@ export function ResidentialQuote({ catalog, settings }: { catalog: Catalog | nul
           <section className="card">
             <h2>Price guide</h2>
             <p className="muted small">Solar only, from the residential model. Battery adds £{num(rs.systemTypes[0].batteryPer5kWh)} per 5 kWh.</p>
+            <div className="scroll-x">
             <table className="lines guide">
               <thead><tr><th>kWp</th><th className="n">Pitched</th><th className="n">Flat</th><th className="n">Pitched + 5 kWh</th><th className="n">Pitched + 10 kWh</th></tr></thead>
               <tbody>
@@ -187,6 +189,7 @@ export function ResidentialQuote({ catalog, settings }: { catalog: Catalog | nul
                 })}
               </tbody>
             </table>
+            </div>
           </section>
         )}
       </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Catalog, Line, QuoteResult } from '../../shared/types';
-import { money, num } from '../api';
+import { IS_STATIC, money, num } from '../api';
 
 function LineTable({ lines, internal, multiplier }: { lines: Line[]; internal: boolean; multiplier?: number }) {
   return (
@@ -123,7 +123,7 @@ export function Results({ result, catalog, onRefresh, onUpload, uploading }: Pro
             </span>
           </div>
           <div className="supplier-actions">
-            <label className="link upload">
+            {!IS_STATIC && <label className="link upload">
               {uploading ? 'Uploading…' : 'Upload Midsummer price sheet'}
               <input
                 type="file"
@@ -131,8 +131,9 @@ export function Results({ result, catalog, onRefresh, onUpload, uploading }: Pro
                 disabled={uploading}
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }}
               />
-            </label>
-            <button type="button" className="link" onClick={onRefresh}>Reload</button>
+            </label>}
+            {IS_STATIC ? <span className="muted small">Test version: prices are built in</span>
+              : <button type="button" className="link" onClick={onRefresh}>Reload</button>}
           </div>
         </div>
       )}
