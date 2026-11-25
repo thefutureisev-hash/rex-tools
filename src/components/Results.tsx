@@ -33,10 +33,11 @@ interface Props {
   onRefresh: () => void;
   onUpload: (file: File) => void;
   uploading: boolean;
+  canUpload?: boolean;
   pdfButton?: ReactNode;
 }
 
-export function Results({ result, catalog, onRefresh, onUpload, uploading, pdfButton }: Props) {
+export function Results({ result, catalog, onRefresh, onUpload, uploading, canUpload, pdfButton }: Props) {
   const [internal, setInternal] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
   if (!result) return <aside className="results"><p className="muted">Calculating…</p></aside>;
@@ -139,7 +140,7 @@ export function Results({ result, catalog, onRefresh, onUpload, uploading, pdfBu
             </span>
           </div>
           <div className="supplier-actions">
-            {!IS_STATIC && <label className="link upload">
+            {!IS_STATIC && canUpload && <label className="link upload">
               {uploading ? 'Uploading…' : 'Upload Midsummer price sheet'}
               <input
                 type="file"

@@ -79,3 +79,22 @@ PRICE_DATA_DIR=/path/to/private npx tsx scripts/prepare-template.mts "Solar Quot
 This hides the placeholder text (needs `pdftoppm` and Python with Pillow). If the layout of the cover,
 scope or costing pages changes, the positions in `TEMPLATE` (`shared/quotePdf.ts`) need updating.
 
+## Logins
+
+Every API route needs a signed-in user. Users live in `PRICE_DATA_DIR/users.json` (scrypt-hashed
+passwords); sessions are signed cookies valid for 7 days. Roles: **admin** (team, data uploads and
+quotes) and **staff** (quotes). On a fresh server the app shows a one-time setup screen that needs
+`SETUP_CODE` to create the first admin; after that, admins add the team on the "Team & data" page.
+
+## Deploying (Hostinger Node.js)
+
+- Build: `npm run build` (front end to `dist/`, server bundle to `dist-server/index.mjs`)
+- Start: `node dist-server/index.mjs`
+- Environment variables:
+  - `NODE_ENV=production`
+  - `SESSION_SECRET` – long random string (required in production)
+  - `SETUP_CODE` – one-time code for creating the first admin
+  - `PRICE_DATA_DIR` – a folder outside the website that survives redeploys (prices, template, users)
+- After the first sign-in, upload the Midsummer sheet, the prepared quotation template and any extra
+  products on "Team & data".
+

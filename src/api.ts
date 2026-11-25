@@ -8,41 +8,60 @@ const staticFiles = import.meta.glob<{ catalog: Catalog; settings: Settings }>('
 const staticData = __STATIC__ ? Object.values(staticFiles)[0] : undefined;
 export const IS_STATIC = !!staticData;
 
+/** Fired when the server says the session has ended, so the app can show the sign-in screen. */
+export const authEvents = new EventTarget();
+
+/** fetch for the API: JSON in and out, readable errors, and sign-out on 401. */
+async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
+  const { json, ...rest } = init;
+  const r = await fetch(path, {
+    credentials: 'same-origin',
+    ...rest,
+    ...(json !== undefined ? { method: rest.method ?? 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(json) } : {}),
+  });
+  if (r.status === 401 && !path.startsWith('/api/auth/')) authEvents.dispatchEvent(new Event('unauthorized'));
+  const body = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(body?.error ?? `Request failed (${r.status})`);
+  return body as T;
+}
+
+// ---------- sign-in and team ----------
+
+export interface User { id: string; email: string; name: string; role: 'admin' | 'staff'; createdAt: string }
+
+export const getMe = () => api<{ user: User | null; setupNeeded: boolean }>('/api/auth/me');
+export const signIn = (email: string, password: string) => api<{ user: User }>('/api/auth/login', { json: { email, password } });
+export const signOut = () => api('/api/auth/logout', { method: 'POST' });
+export const runSetup = (d: { code: string; name: string; email: string; password: string }) => api<{ user: User }>('/api/auth/setup', { json: d });
+export const changeOwnPassword = (current: string, password: string) => api('/api/auth/password', { json: { current, password } });
+export const listUsers = () => api<User[]>('/api/users');
+export const addUser = (d: { name: string; email: string; role: User['role']; password: string }) => api<User>('/api/users', { json: d });
+export const removeUser = (id: string) => api(`/api/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const resetPassword = (id: string, password: string) => api(`/api/users/${encodeURIComponent(id)}/password`, { json: { password } });
+
+// ---------- pricing ----------
+
 export async function fetchCatalog(refresh = false): Promise<Catalog> {
   if (staticData) return staticData.catalog;
-  const r = await fetch(`/api/catalog${refresh ? '?refresh=1' : ''}`);
-  if (!r.ok) throw new Error('Could not load supplier catalogue');
-  return r.json();
+  return api<Catalog>(`/api/catalog${refresh ? '?refresh=1' : ''}`);
 }
 
 export async function calculateResidential(input: ResidentialInput): Promise<ResidentialResult> {
   if (staticData) return priceResidential(input, staticData.catalog, staticData.settings);
-  const r = await fetch('/api/residential/calculate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!r.ok) throw new Error('Pricing failed');
-  return r.json();
+  return api<ResidentialResult>('/api/residential/calculate', { json: input });
 }
 
 export async function fetchSettings(): Promise<Settings> {
   if (staticData) return staticData.settings;
-  const r = await fetch('/api/settings');
-  if (!r.ok) throw new Error('Could not load settings');
-  return r.json();
+  return api<Settings>('/api/settings');
 }
 
 export async function calculate(input: QuoteInput): Promise<QuoteResult> {
   if (staticData) return priceQuote(input, staticData.catalog, staticData.settings);
-  const r = await fetch('/api/quote/calculate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!r.ok) throw new Error('Pricing failed');
-  return r.json();
+  return api<QuoteResult>('/api/quote/calculate', { json: input });
 }
+
+// ---------- admin uploads ----------
 
 export interface UploadSummary {
   priceDate?: string;
@@ -53,16 +72,12 @@ export interface UploadSummary {
   skipped: number;
 }
 
-export async function uploadMidsummer(file: File): Promise<UploadSummary> {
-  const r = await fetch('/api/suppliers/midsummer/upload', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/octet-stream' },
-    body: file,
-  });
-  const body = await r.json();
-  if (!r.ok) throw new Error(body.error ?? 'Upload failed');
-  return body;
-}
+const upload = <T,>(path: string, file: File) =>
+  api<T>(path, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file });
+
+export const uploadMidsummer = (file: File) => upload<UploadSummary>('/api/suppliers/midsummer/upload', file);
+export const uploadTemplate = (file: File) => upload<{ bytes: number }>('/api/admin/template', file);
+export const uploadExtraProducts = (file: File) => upload<{ products: number }>('/api/admin/extra-products', file);
 
 const gbp = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' });
 export const money = (n: number) => gbp.format(n);

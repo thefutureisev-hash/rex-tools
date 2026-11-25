@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Catalog, ExtraInput, Product, Settings, HouseTypeInput, QuoteInput, QuoteResult } from '../shared/types';
-import { calculate, fetchCatalog, fetchSettings, uid, uploadMidsummer } from './api';
+import { calculate, fetchCatalog, fetchSettings, IS_STATIC, uid, uploadMidsummer, type User } from './api';
 import { HouseTypeCard } from './components/HouseTypeCard';
 import { developerPdfData } from '../shared/quoteDocs';
+import { AdminPage } from './components/AdminPage';
 import { ConfirmButton } from './components/ConfirmButton';
 import { GeneratePdfButton } from './components/GeneratePdfButton';
 import { PaymentScheduleEditor } from './components/PaymentScheduleEditor';
@@ -51,7 +52,10 @@ function loadDraft(): QuoteInput {
   return blankQuote();
 }
 
-export default function App() {
+type Tab = 'developer' | 'residential' | 'admin';
+
+export default function App({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+  const isAdmin = user.role === 'admin';
   const [quote, setQuote] = useState<QuoteInput>(loadDraft);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [result, setResult] = useState<QuoteResult | null>(null);
@@ -59,7 +63,7 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [uploading, setUploading] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [tab, setTab] = useState<'developer' | 'residential'>(() => {
+  const [tab, setTab] = useState<Tab>(() => {
     try { return localStorage.getItem('rex-tab') === 'residential' ? 'residential' : 'developer'; } catch { return 'developer'; }
   });
   useEffect(() => { try { localStorage.setItem('rex-tab', tab); } catch { /* ignore */ } }, [tab]);
@@ -118,6 +122,13 @@ export default function App() {
           <button disabled title="Coming next">Solar – Commercial</button>
           <button disabled title="Coming next">EV charging</button>
         </nav>
+        {!IS_STATIC && (
+          <div className="account">
+            <button className={`link${tab === 'admin' ? ' current' : ''}`} onClick={() => setTab('admin')}>{isAdmin ? 'Team & data' : 'Account'}</button>
+            <span className="who" title={user.email}>{user.name}</span>
+            <button className="link" onClick={onSignOut}>Sign out</button>
+          </div>
+        )}
         {tab === 'developer' && (
           <ConfirmButton
             label="New quote"
@@ -131,6 +142,7 @@ export default function App() {
       {notice && <p className="notice" onClick={() => setNotice('')}>{notice}</p>}
 
       {tab === 'residential' && <ResidentialQuote catalog={catalog} settings={settings} />}
+      {tab === 'admin' && <AdminPage me={user} onDataChanged={() => { loadCatalog(true); fetchSettings().then(setSettings).catch(() => {}); }} />}
 
       {tab === 'developer' && (
       <main className="layout">
@@ -247,6 +259,7 @@ export default function App() {
           catalog={catalog}
           onRefresh={() => loadCatalog(true)}
           uploading={uploading}
+          canUpload={isAdmin}
           onUpload={async (file) => {
             setUploading(true);
             try {
