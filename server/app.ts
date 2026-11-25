@@ -6,7 +6,7 @@ import type { QuoteInput } from '../shared/types';
 import {
   addUser, listUsers, login, logout, me, removeUser, requireAdmin, requireUser, setPassword, setup,
 } from './auth';
-import { DIST_DIR } from './paths';
+import { DIST_DIR, WELL_KNOWN_DIRS } from './paths';
 import { getSettings } from './settings';
 import { readPrivateFile, writePrivateFile, writePrivateJson } from './storage';
 import { clearCatalogCache, getCatalog } from './suppliers';
@@ -22,6 +22,9 @@ app.use((_req, res, next) => {
   res.setHeader('Referrer-Policy', 'same-origin');
   next();
 });
+
+// Domain-verification files (SSL certificates) placed by the host
+for (const dir of WELL_KNOWN_DIRS) app.use('/.well-known', express.static(dir, { dotfiles: 'allow', index: false }));
 
 // ---------- sign-in (open) ----------
 app.get('/api/auth/me', me);

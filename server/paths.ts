@@ -18,3 +18,14 @@ function findRoot(): string {
 export const APP_ROOT = findRoot();
 export const DATA_DIR = path.join(APP_ROOT, 'data');
 export const DIST_DIR = path.join(APP_ROOT, 'dist');
+
+/**
+ * Where the host puts domain-verification files (e.g. for the SSL certificate).
+ * On Hostinger the app runs from <domain>/hbuilds/current/nodejs while those files
+ * go in <domain>/public_html/.well-known, so look there as well.
+ */
+export const WELL_KNOWN_DIRS = [
+  process.env.WELL_KNOWN_DIR,
+  path.resolve(APP_ROOT, '..', '..', '..', 'public_html', '.well-known'),
+  path.join(APP_ROOT, 'public_html', '.well-known'),
+].filter(Boolean) as string[];

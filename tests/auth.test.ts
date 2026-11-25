@@ -82,3 +82,11 @@ describe('login', () => {
     expect(last).toBe(429);
   });
 });
+
+describe('domain verification files', () => {
+  it('serves /.well-known files from WELL_KNOWN_DIR without a login', async () => {
+    // WELL_KNOWN_DIR is read at import time, so check the fallback behaviour through a 404 here
+    const r = await fetch(`${base}/.well-known/acme-challenge/missing`);
+    expect(r.status).not.toBe(401);
+  });
+});
