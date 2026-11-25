@@ -42,7 +42,7 @@ export interface Catalog {
 
 // ---------- Quote input ----------
 
-export type RoofType = 'pitched_tile' | 'pitched_slate' | 'in_roof' | 'flat';
+export type RoofType = 'pitched_tile' | 'pitched_slate' | 'in_roof' | 'flat' | 'metal';
 export type Orientation = 'S' | 'SE_SW' | 'E_W' | 'E' | 'W' | 'N';
 export type ProjectType = 'developer' | 'residential' | 'commercial';
 
@@ -63,6 +63,10 @@ export interface HouseTypeInput {
   batterySku: string | null;
   /** Force a specific inverter instead of auto-selecting */
   inverterSku: string | null;
+  /** Estimated DC cable per plot, metres */
+  dcCableMetres: number;
+  /** Scaffolding / access cost per plot, our cost (0 when not needed) */
+  scaffoldPerPlot: number;
 }
 
 export interface ExtraInput {
@@ -97,8 +101,25 @@ export interface Settings {
   mounting: Record<RoofType, { perPanel: number; perArray: number }>;
   /** Flat-roof east/west ballasted systems are priced separately */
   flatEastWestPerPanel: number;
-  labour: { perPanel: number; perPlot: number; batteryInstall: number };
-  perPlotCosts: { description: string; cost: number; roofTypes: RoofType[] }[];
+  labour: {
+    /**
+     * Installation labour per system (plot) on a flat roof, as [panels, £] points.
+     * Includes install, testing and commissioning; excludes scaffolding.
+     * Interpolated between points; below the first point the first price applies.
+     */
+    flatCurve: [number, number][];
+    /** £ per panel beyond the last point on the curve */
+    beyondPerPanel: number;
+    /** Multiplier on the flat-roof curve for each roof type */
+    roofFactor: Record<RoofType, number>;
+    batteryInstall: number;
+  };
+  electrical: {
+    /** DC isolator, generation meter, AC isolator and cabling, per plot */
+    fixedPerPlot: number;
+    dcCablePer100m: number;
+  };
+  perPlotCosts: { description: string; cost: number }[];
   /** kWh generated per kWp per year */
   specificYield: Record<Orientation, number>;
   /** Max DC:AC ratio when sizing inverters */
@@ -110,7 +131,7 @@ export interface Settings {
 
 // ---------- Result ----------
 
-export type LineCategory = 'panel' | 'inverter' | 'battery' | 'mounting' | 'labour' | 'extras';
+export type LineCategory = 'panel' | 'inverter' | 'battery' | 'mounting' | 'electrical' | 'labour' | 'access' | 'extras';
 
 export interface Line {
   description: string;

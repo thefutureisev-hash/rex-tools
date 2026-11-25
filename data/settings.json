@@ -1,17 +1,22 @@
 {
-  "markup": { "panel": 25, "inverter": 25, "battery": 20, "mounting": 30, "labour": 35, "extras": 20 },
+  "markup": { "panel": 25, "inverter": 25, "battery": 20, "mounting": 30, "electrical": 30, "labour": 35, "access": 15, "extras": 20 },
   "mounting": {
     "pitched_tile":  { "perPanel": 35, "perArray": 120 },
     "pitched_slate": { "perPanel": 45, "perArray": 120 },
     "in_roof":       { "perPanel": 60, "perArray": 150 },
-    "flat":          { "perPanel": 55, "perArray": 100 }
+    "flat":          { "perPanel": 55, "perArray": 100 },
+    "metal":         { "perPanel": 25, "perArray": 100 }
   },
   "flatEastWestPerPanel": 45,
-  "labour": { "perPanel": 40, "perPlot": 350, "batteryInstall": 250 },
+  "labour": {
+    "flatCurve": [[6, 500], [10, 650], [20, 1500], [40, 2800], [72, 3500], [85, 3650]],
+    "beyondPerPanel": 35,
+    "roofFactor": { "flat": 1, "pitched_tile": 1.6, "pitched_slate": 1.75, "in_roof": 2, "metal": 1.15 },
+    "batteryInstall": 250
+  },
+  "electrical": { "fixedPerPlot": 100, "dcCablePer100m": 90 },
   "perPlotCosts": [
-    { "description": "Scaffolding", "cost": 450, "roofTypes": ["pitched_tile", "pitched_slate", "in_roof"] },
-    { "description": "Edge protection", "cost": 250, "roofTypes": ["flat"] },
-    { "description": "MCS certification & handover pack", "cost": 60, "roofTypes": ["pitched_tile", "pitched_slate", "in_roof", "flat"] }
+    { "description": "MCS certification & handover pack", "cost": 60 }
   ],
   "specificYield": { "S": 920, "SE_SW": 880, "E_W": 760, "E": 720, "W": 720, "N": 520 },
   "maxDcAcRatio": { "default": 1.3, "E_W": 1.5 },

@@ -17,7 +17,12 @@ Production: `npm run build && npm start` (serves the app and API on `PORT`, defa
 - Each **house type** has plots, panel model/count, roof type, orientation, number of arrays, supply phase and an optional battery.
 - **Inverter** is auto-selected: the cheapest inverter of the right phase (hybrid if there's a battery) whose AC rating × max DC:AC ratio covers the array (1.3, or 1.5 for east/west).
 - **Mounting** is priced per panel by roof type, plus a charge per extra array. Flat-roof east/west uses ballasted per-panel pricing.
-- **Labour**, scaffolding / edge protection and MCS paperwork are added per plot.
+- **Labour** (install, testing, commissioning) is read per system from a curve fitted to REX's historical
+  flat-roof jobs (`labour.flatCurve`, [panels, £] points, interpolated), then multiplied by a roof-type
+  factor. Battery installation is added on top.
+- **Electrical**: DC cable (metres per plot × £/100 m) plus a fixed per-plot amount for the DC isolator,
+  generation meter and AC isolator with cabling. Work beyond the AC isolator is entered as an extra.
+- **Scaffolding** is entered per house type (often not needed), or as a whole-site extra.
 - Single-phase inverters over 3.68 kW trigger a **G99 application** line.
 - Markup is applied per category; the app shows cost, sell price and margin.
 - **Availability** is checked against total quantities across all plots.

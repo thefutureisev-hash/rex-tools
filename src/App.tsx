@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Catalog, ExtraInput, HouseTypeInput, QuoteInput, QuoteResult } from '../shared/types';
+import type { Catalog, ExtraInput, Product, HouseTypeInput, QuoteInput, QuoteResult } from '../shared/types';
 import { calculate, fetchCatalog, uid, uploadMidsummer } from './api';
 import { HouseTypeCard } from './components/HouseTypeCard';
 import { Results } from './components/Results';
 
 const DRAFT_KEY = 'rex-quote-draft';
 
+/** First panel without a caveat (e.g. "only sold with mounting"), else the first panel */
+const defaultPanel = (products: Product[]) => {
+  const panels = products.filter((p) => p.category === 'panel');
+  return (panels.find((p) => !p.notes) ?? panels[0])?.sku ?? '';
+};
+
 const newHouseType = (n: number, panelSku = ''): HouseTypeInput => ({
   id: uid(), name: `House type ${n}`, plots: 1, panelSku, panelCount: 8,
   roofType: 'pitched_tile', orientation: 'S', arrays: 1, phase: 1,
-  batterySku: null, inverterSku: null,
+  batterySku: null, inverterSku: null, dcCableMetres: 0, scaffoldPerPlot: 0,
 });
 
 const blankQuote = (): QuoteInput => ({
@@ -24,7 +30,12 @@ const blankQuote = (): QuoteInput => ({
 function loadDraft(): QuoteInput {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const q = JSON.parse(raw) as QuoteInput;
+      // Fill in fields added since the draft was saved
+      q.houseTypes = q.houseTypes.map((h) => ({ ...h, dcCableMetres: h.dcCableMetres ?? 0, scaffoldPerPlot: h.scaffoldPerPlot ?? 0 }));
+      return q;
+    }
   } catch { /* ignore */ }
   return blankQuote();
 }
@@ -44,7 +55,7 @@ export default function App() {
       // Default the panel on any house type that doesn't have one yet
       // Default the panel, and clear any choices the new price list no longer has
       const skus = new Set(c.products.map((p) => p.sku));
-      const firstPanel = c.products.find((p) => p.category === 'panel')?.sku ?? '';
+      const firstPanel = defaultPanel(c.products);
       setQuote((q) => ({
         ...q,
         houseTypes: q.houseTypes.map((h) => ({
@@ -79,7 +90,7 @@ export default function App() {
     setQuote((q) => ({ ...q, extras: q.extras.map((x, j) => (j === i ? e : x)) }));
 
   const products = catalog?.products ?? [];
-  const firstPanel = products.find((p) => p.category === 'panel')?.sku ?? '';
+  const firstPanel = defaultPanel(products);
 
   return (
     <div className="app">
@@ -152,9 +163,17 @@ export default function App() {
               </div>
             ))}
             <div className="chips">
-              {['Bird mesh', 'EPS / backup switch', 'Optimisers', 'Additional cable run', 'Site survey', 'Design & SAP support'].map((d) => (
+              {([
+                ['Scaffolding (whole site)', 'project'],
+                ['Electrical works beyond AC isolator', 'plot'],
+                ['Bird mesh', 'plot'],
+                ['EPS / backup switch', 'plot'],
+                ['Optimisers', 'plot'],
+                ['Site survey', 'project'],
+                ['Design & SAP support', 'project'],
+              ] as const).map(([d, per]) => (
                 <button key={d} className="chip" onClick={() => setQuote((q) => ({
-                  ...q, extras: [...q.extras, { id: uid(), description: d, unitCost: 0, qty: 1, per: d.startsWith('Site') || d.startsWith('Design') ? 'project' : 'plot' }],
+                  ...q, extras: [...q.extras, { id: uid(), description: d, unitCost: 0, qty: 1, per }],
                 }))}>+ {d}</button>
               ))}
               <button className="chip" onClick={() => setQuote((q) => ({ ...q, extras: [...q.extras, { id: uid(), description: '', unitCost: 0, qty: 1, per: 'plot' }] }))}>+ Custom</button>

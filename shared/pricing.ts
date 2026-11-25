@@ -1,5 +1,6 @@
 import type {
   AvailabilityRow,
+  RoofType,
   Catalog,
   HouseTypeInput,
   HouseTypeResult,
@@ -19,7 +20,25 @@ export const ROOF_LABELS = {
   pitched_slate: 'Pitched – slate',
   in_roof: 'In-roof (integrated)',
   flat: 'Flat roof',
+  metal: 'Metal (clip / mini-rail)',
 } as const;
+
+/** Labour for one system, read from the flat-roof curve and scaled by roof type. */
+export function labourFor(panels: number, roofType: RoofType, settings: Settings): number {
+  const curve = [...settings.labour.flatCurve].sort((a, b) => a[0] - b[0]);
+  if (panels <= 0 || !curve.length) return 0;
+  let flat: number;
+  const last = curve[curve.length - 1];
+  if (panels <= curve[0][0]) flat = curve[0][1];
+  else if (panels >= last[0]) flat = last[1] + (panels - last[0]) * settings.labour.beyondPerPanel;
+  else {
+    const i = curve.findIndex(([n]) => n >= panels);
+    const [n0, c0] = curve[i - 1];
+    const [n1, c1] = curve[i];
+    flat = c0 + ((panels - n0) / (n1 - n0)) * (c1 - c0);
+  }
+  return round2(flat * (settings.labour.roofFactor[roofType] ?? 1));
+}
 
 export const ORIENTATION_LABELS: Record<Orientation, string> = {
   S: 'South',
@@ -172,17 +191,34 @@ function priceHouseType(
     }
   }
 
-  // Labour
+  // Electrical (to the AC isolator; anything further is entered as an extra)
   if (ht.panelCount > 0) {
-    lines.push(line(settings, 'labour', 'Installation labour – per panel', ht.panelCount, settings.labour.perPanel));
-    lines.push(line(settings, 'labour', 'Installation labour – per plot (inverter, AC, commissioning)', 1, settings.labour.perPlot));
+    const cable = Math.max(0, ht.dcCableMetres || 0);
+    if (cable > 0) {
+      lines.push(line(settings, 'electrical', 'DC solar cable (m)', cable, settings.electrical.dcCablePer100m / 100));
+    } else {
+      warnings.push('Enter the estimated DC cable length per plot.');
+    }
+    lines.push(line(settings, 'electrical', 'DC isolator, generation meter, AC isolator & cabling', 1, settings.electrical.fixedPerPlot));
+  }
+
+  // Labour, from the historical labour curve
+  if (ht.panelCount > 0) {
+    const factor = settings.labour.roofFactor[ht.roofType] ?? 1;
+    lines.push(line(
+      settings, 'labour',
+      `Installation, testing & commissioning – ${ht.panelCount} panels, ${ROOF_LABELS[ht.roofType].toLowerCase()}${factor !== 1 ? ` (×${factor})` : ''}`,
+      1, labourFor(ht.panelCount, ht.roofType, settings),
+    ));
   }
   if (battery) lines.push(line(settings, 'labour', 'Battery installation', 1, settings.labour.batteryInstall));
+  if (ht.panelCount > 0) {
+    for (const c of settings.perPlotCosts) lines.push(line(settings, 'labour', c.description, 1, c.cost));
+  }
 
-  for (const c of settings.perPlotCosts) {
-    if (ht.panelCount > 0 && c.roofTypes.includes(ht.roofType)) {
-      lines.push(line(settings, 'labour', c.description, 1, c.cost));
-    }
+  // Scaffolding / access: entered per project, since it isn't always needed
+  if (ht.panelCount > 0 && (ht.scaffoldPerPlot || 0) > 0) {
+    lines.push(line(settings, 'access', 'Scaffolding / access', 1, ht.scaffoldPerPlot));
   }
 
   // Checks

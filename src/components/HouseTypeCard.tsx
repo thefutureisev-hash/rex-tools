@@ -77,6 +77,13 @@ export function HouseTypeCard({ value, products, result, onChange, onRemove, onD
           </select>
         </label>
 
+        <label>DC cable per plot (m)
+          <input type="number" min={0} value={value.dcCableMetres || ''} placeholder="Estimate" onChange={(e) => set('dcCableMetres', +e.target.value)} />
+        </label>
+        <label>Scaffolding per plot (£ cost)
+          <input type="number" min={0} value={value.scaffoldPerPlot || ''} placeholder="0 if not needed" onChange={(e) => set('scaffoldPerPlot', +e.target.value)} />
+        </label>
+
         <label className="span2">Battery
           <select value={value.batterySku ?? ''} onChange={(e) => set('batterySku', e.target.value || null)}>
             <option value="">No battery</option>
