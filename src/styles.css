@@ -104,3 +104,4 @@ table.lines { width: 100%; border-collapse: collapse; font-size: 12px; margin-to
 .status.unknown { color: var(--muted); }
 select:disabled { background: var(--bg); color: var(--muted); }
 optgroup { font-weight: 600; }
+.unit { align-self: center; color: var(--muted); }

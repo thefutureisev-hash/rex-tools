@@ -1,8 +1,14 @@
-import type { Catalog, QuoteInput, QuoteResult } from '../shared/types';
+import type { Catalog, QuoteInput, QuoteResult, Settings } from '../shared/types';
 
 export async function fetchCatalog(refresh = false): Promise<Catalog> {
   const r = await fetch(`/api/catalog${refresh ? '?refresh=1' : ''}`);
   if (!r.ok) throw new Error('Could not load supplier catalogue');
+  return r.json();
+}
+
+export async function fetchSettings(): Promise<Settings> {
+  const r = await fetch('/api/settings');
+  if (!r.ok) throw new Error('Could not load settings');
   return r.json();
 }
 

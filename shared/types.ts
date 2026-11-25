@@ -91,6 +91,8 @@ export interface QuoteInput {
   extras: ExtraInput[];
   discount: { type: 'percent' | 'amount'; value: number };
   vatRate: number;
+  /** Override the automatic multi-plot labour discount (percent); null = automatic */
+  labourDiscountPct?: number | null;
 }
 
 // ---------- Settings ----------
@@ -113,7 +115,12 @@ export interface Settings {
     /** Multiplier on the flat-roof curve for each roof type */
     roofFactor: Record<RoofType, number>;
     batteryInstall: number;
+    /** [minimum plots on the quote, % off labour] tiers */
+    multiPlotDiscount: [number, number][];
   };
+  ballast: { blockCost: number; blocksPerPanelSouth: number; blocksPerPanelEW: number };
+  /** One-click optional extras offered on the form, with our default cost */
+  optionalExtras: { description: string; cost: number; per: 'plot' | 'project' }[];
   electrical: {
     /** DC isolator, generation meter, AC isolator and cabling, per plot */
     fixedPerPlot: number;
@@ -183,6 +190,7 @@ export interface QuoteResult {
     gross: number;
     margin: number;
     marginPct: number;
+    labourDiscountPct: number;
   };
   availability: AvailabilityRow[];
   warnings: string[];

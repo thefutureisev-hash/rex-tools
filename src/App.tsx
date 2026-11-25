@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Catalog, ExtraInput, Product, HouseTypeInput, QuoteInput, QuoteResult } from '../shared/types';
-import { calculate, fetchCatalog, uid, uploadMidsummer } from './api';
+import type { Catalog, ExtraInput, Product, Settings, HouseTypeInput, QuoteInput, QuoteResult } from '../shared/types';
+import { calculate, fetchCatalog, fetchSettings, uid, uploadMidsummer } from './api';
 import { HouseTypeCard } from './components/HouseTypeCard';
 import { Results } from './components/Results';
 
 const DRAFT_KEY = 'rex-quote-draft';
 
-/** First panel without a caveat (e.g. "only sold with mounting"), else the first panel */
+/** Best-value panel (lowest £/W) without a caveat such as "only sold with mounting" */
 const defaultPanel = (products: Product[]) => {
-  const panels = products.filter((p) => p.category === 'panel');
-  return (panels.find((p) => !p.notes) ?? panels[0])?.sku ?? '';
+  const panels = products.filter((p) => p.category === 'panel' && p.watts);
+  const pool = panels.filter((p) => !p.notes).length ? panels.filter((p) => !p.notes) : panels;
+  return pool.sort((a, b) => a.costPrice / a.watts! - b.costPrice / b.watts!)[0]?.sku ?? '';
 };
 
 const newHouseType = (n: number, panelSku = ''): HouseTypeInput => ({
@@ -47,6 +48,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [settings, setSettings] = useState<Settings | null>(null);
 
   const loadCatalog = useCallback(async (refresh = false) => {
     try {
@@ -71,6 +73,7 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadCatalog(); }, [loadCatalog]);
+  useEffect(() => { fetchSettings().then(setSettings).catch(() => {}); }, []);
 
   // Re-price shortly after each change, and keep a draft in the browser
   useEffect(() => {
@@ -163,18 +166,10 @@ export default function App() {
               </div>
             ))}
             <div className="chips">
-              {([
-                ['Scaffolding (whole site)', 'project'],
-                ['Electrical works beyond AC isolator', 'plot'],
-                ['Bird mesh', 'plot'],
-                ['EPS / backup switch', 'plot'],
-                ['Optimisers', 'plot'],
-                ['Site survey', 'project'],
-                ['Design & SAP support', 'project'],
-              ] as const).map(([d, per]) => (
-                <button key={d} className="chip" onClick={() => setQuote((q) => ({
-                  ...q, extras: [...q.extras, { id: uid(), description: d, unitCost: 0, qty: 1, per }],
-                }))}>+ {d}</button>
+              {(settings?.optionalExtras ?? []).map((x) => (
+                <button key={x.description} className="chip" onClick={() => setQuote((q) => ({
+                  ...q, extras: [...q.extras, { id: uid(), description: x.description, unitCost: x.cost, qty: 1, per: x.per }],
+                }))}>+ {x.description}{x.cost ? ` (£${x.cost}${x.per === 'plot' ? '/plot' : ''})` : ''}</button>
               ))}
               <button className="chip" onClick={() => setQuote((q) => ({ ...q, extras: [...q.extras, { id: uid(), description: '', unitCost: 0, qty: 1, per: 'plot' }] }))}>+ Custom</button>
             </div>
@@ -183,6 +178,17 @@ export default function App() {
           <section className="card">
             <h2>Discount &amp; VAT</h2>
             <div className="grid">
+              <label>Multi-plot labour discount
+                <div className="row">
+                  <input
+                    type="number" min={0} max={100}
+                    value={quote.labourDiscountPct ?? ''}
+                    placeholder={`Auto: ${result?.totals.labourDiscountPct ?? 0}%`}
+                    onChange={(e) => setQuote((q) => ({ ...q, labourDiscountPct: e.target.value === '' ? null : +e.target.value }))}
+                  />
+                  <span className="unit">%</span>
+                </div>
+              </label>
               <label>Discount
                 <div className="row">
                   <input type="number" min={0} value={quote.discount.value} onChange={(e) => setQuote((q) => ({ ...q, discount: { ...q.discount, value: +e.target.value } }))} />

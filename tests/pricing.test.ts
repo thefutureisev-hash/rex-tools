@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import catalogProducts from '../data/sample-catalog.json';
 import settingsJson from '../data/settings.json';
-import { labourFor, priceQuote, selectInverter } from '../shared/pricing';
+import { labourFor, multiPlotDiscount, priceQuote, selectInverter } from '../shared/pricing';
 import type { Catalog, HouseTypeInput, Product, QuoteInput, Settings } from '../shared/types';
 
-const settings = settingsJson as Settings;
+const settings = settingsJson as unknown as Settings;
 const products = (catalogProducts as Omit<Product, 'supplier'>[]).map((p) => ({ ...p, supplier: 'test' })) as Product[];
 const catalog: Catalog = { source: 'test', live: true, fetchedAt: '', products };
 
@@ -58,10 +58,16 @@ describe('priceQuote', () => {
     const r = priceQuote(quote([house()]), catalog, settings);
     const h = r.houseTypes[0];
     expect(h.kWp).toBe(3.44);
-    // panels 8×78 + inverter 395 + mounting 8×35 + cable 20 m × £0.90 + electrical 100
-    // + labour (curve at 8 panels = £575 × 1.6 pitched) + MCS 60
-    expect(h.costPerPlot).toBe(624 + 395 + 280 + 18 + 100 + 920 + 60);
-    expect(h.costTotal).toBe(h.costPerPlot * 10);
+    // 10 plots → automatic multi-plot labour discount
+    const pct = multiPlotDiscount(10, settings);
+    expect(r.totals.labourDiscountPct).toBe(pct);
+    const expected =
+      8 * 78 + 395 // panels + inverter (sample catalogue)
+      + 8 * settings.mounting.pitched_tile.perPanel
+      + 20 * (settings.electrical.dcCablePer100m / 100) + settings.electrical.fixedPerPlot
+      + labourFor(8, 'pitched_tile', settings) * (1 - pct / 100);
+    expect(h.costPerPlot).toBeCloseTo(expected, 1);
+    expect(h.costTotal).toBeCloseTo(h.costPerPlot * 10, 2);
     expect(r.totals.cost).toBe(h.costTotal);
     expect(r.totals.plots).toBe(10);
   });
@@ -75,7 +81,34 @@ describe('priceQuote', () => {
   it('uses flat east/west ballast pricing', () => {
     const r = priceQuote(quote([house({ roofType: 'flat', orientation: 'E_W', arrays: 2 })]), catalog, settings);
     const descs = r.houseTypes[0].lines.map((l) => l.description);
-    expect(descs).toContain('Flat-roof east/west ballasted mounting');
+    expect(descs).toContain('Flat-roof east/west mounting (back-to-back)');
+    const ballast = r.houseTypes[0].lines.find((l) => l.description === 'Ballast blocks')!;
+    expect(ballast.qty).toBe(Math.ceil(8 * settings.ballast.blocksPerPanelEW));
+  });
+
+  it('needs more ballast for south-facing flat roofs than east/west', () => {
+    const blocks = (orientation: 'S' | 'E_W') =>
+      priceQuote(quote([house({ roofType: 'flat', orientation })]), catalog, settings)
+        .houseTypes[0].lines.find((l) => l.description === 'Ballast blocks')!.qty;
+    expect(blocks('S')).toBeGreaterThan(blocks('E_W'));
+  });
+
+  it('does not add ballast on pitched roofs', () => {
+    const r = priceQuote(quote([house()]), catalog, settings);
+    expect(r.houseTypes[0].lines.some((l) => l.description === 'Ballast blocks')).toBe(false);
+  });
+
+  it('asks for two arrays on a pitched east/west roof', () => {
+    const r = priceQuote(quote([house({ orientation: 'E_W', arrays: 1 })]), catalog, settings);
+    expect(r.houseTypes[0].warnings.some((w) => w.includes('two roof faces'))).toBe(true);
+  });
+
+  it('applies the multi-plot labour discount, or an override', () => {
+    const labour = (q: QuoteInput) => priceQuote(q, catalog, settings).houseTypes[0].lines.find((l) => l.category === 'labour')!.cost;
+    const single = labour(quote([house({ plots: 1 })]));
+    expect(single).toBe(labourFor(8, 'pitched_tile', settings));
+    expect(labour(quote([house({ plots: 30 })]))).toBeCloseTo(single * (1 - multiPlotDiscount(30, settings) / 100), 2);
+    expect(labour(quote([house({ plots: 30 })], { labourDiscountPct: 0 }))).toBe(single);
   });
 
   it('only adds scaffolding when entered', () => {
@@ -87,7 +120,9 @@ describe('priceQuote', () => {
 
   it('prices DC cable per metre and warns when it is missing', () => {
     const r = priceQuote(quote([house({ dcCableMetres: 35 })]), catalog, settings).houseTypes[0];
-    expect(r.lines.find((l) => l.description === 'DC solar cable (m)')).toMatchObject({ qty: 35, cost: 31.5 });
+    expect(r.lines.find((l) => l.description === 'DC solar cable (m)')).toMatchObject({
+      qty: 35, cost: Math.round(35 * settings.electrical.dcCablePer100m) / 100,
+    });
     const missing = priceQuote(quote([house({ dcCableMetres: 0 })]), catalog, settings).houseTypes[0];
     expect(missing.warnings.some((w) => w.includes('DC cable'))).toBe(true);
   });
@@ -191,28 +226,47 @@ describe('selectInverter brand matching', () => {
 });
 
 describe('labourFor', () => {
-  it('matches the historical flat-roof jobs it was fitted to', () => {
-    expect(labourFor(4, 'flat', settings)).toBe(500); // 205A Willesden Lane
-    expect(labourFor(40, 'flat', settings)).toBe(2800); // Great Portland St original
-    expect(labourFor(72, 'flat', settings)).toBe(3500); // Alwen Court
-    expect(labourFor(85, 'flat', settings)).toBe(3650); // Sinai Synagogue revised
+  const curve = settings.labour.flatCurve;
+
+  it('returns the curve values at its points', () => {
+    for (const [panels, cost] of curve) expect(labourFor(panels, 'flat', settings)).toBe(cost);
+  });
+
+  it('charges the first point as a minimum', () => {
+    expect(labourFor(1, 'flat', settings)).toBe(curve[0][1]);
   });
 
   it('interpolates between points', () => {
-    expect(labourFor(8, 'flat', settings)).toBe(575);
-    expect(labourFor(30, 'flat', settings)).toBe(2150);
+    const [[n0, c0], [n1, c1]] = curve;
+    const mid = (n0 + n1) / 2;
+    expect(labourFor(mid, 'flat', settings)).toBeCloseTo((c0 + c1) / 2, 2);
   });
 
   it('adds a per-panel rate beyond the curve', () => {
-    expect(labourFor(95, 'flat', settings)).toBe(3650 + 10 * 35);
+    const [n, c] = curve[curve.length - 1];
+    expect(labourFor(n + 10, 'flat', settings)).toBe(c + 10 * settings.labour.beyondPerPanel);
   });
 
-  it('scales by roof type', () => {
-    expect(labourFor(7, 'pitched_tile', settings)).toBeCloseTo(537.5 * 1.6, 2);
-    expect(labourFor(10, 'metal', settings)).toBeCloseTo(650 * 1.15, 2);
+  it('treats pitched and flat roofs the same', () => {
+    expect(labourFor(10, 'pitched_tile', settings)).toBe(labourFor(10, 'flat', settings));
+  });
+
+  it('puts a single house in the £800–£1,000 range', () => {
+    for (const n of [6, 8, 10, 12]) {
+      expect(labourFor(n, 'pitched_tile', settings)).toBeGreaterThanOrEqual(800);
+      expect(labourFor(n, 'pitched_tile', settings)).toBeLessThanOrEqual(1000);
+    }
   });
 
   it('is zero with no panels', () => {
     expect(labourFor(0, 'flat', settings)).toBe(0);
+  });
+});
+
+describe('multiPlotDiscount', () => {
+  it('increases with plots', () => {
+    expect(multiPlotDiscount(1, settings)).toBe(0);
+    expect(multiPlotDiscount(4, settings)).toBeLessThanOrEqual(multiPlotDiscount(10, settings));
+    expect(multiPlotDiscount(10, settings)).toBeLessThanOrEqual(multiPlotDiscount(100, settings));
   });
 });

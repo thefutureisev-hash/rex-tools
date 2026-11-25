@@ -110,10 +110,20 @@ export function selectInverter(
   };
 }
 
+/** Labour discount for sites with several plots, from the settings tiers */
+export function multiPlotDiscount(plots: number, settings: Settings): number {
+  let pct = 0;
+  for (const [minPlots, p] of [...settings.labour.multiPlotDiscount].sort((a, b) => a[0] - b[0])) {
+    if (plots >= minPlots) pct = p;
+  }
+  return pct;
+}
+
 function priceHouseType(
   ht: HouseTypeInput,
   catalog: Catalog,
   settings: Settings,
+  labourDiscountPct: number,
 ): { result: HouseTypeResult; needsG99: boolean } {
   const bySku = new Map(catalog.products.map((p) => [p.sku, p]));
   const warnings: string[] = [];
@@ -178,16 +188,26 @@ function priceHouseType(
     if (p?.notes && !warnings.includes(p.notes)) warnings.push(`${p.brand} ${p.name}: ${p.notes}`);
   }
 
-  // Mounting
+  // Mounting: kit per panel by roof type. Flat roofs also need ballast; east/west
+  // back-to-back frames share parts and need less ballast than south-facing rows.
   if (ht.panelCount > 0) {
-    if (ht.roofType === 'flat' && ht.orientation === 'E_W') {
-      lines.push(line(settings, 'mounting', 'Flat-roof east/west ballasted mounting', ht.panelCount, settings.flatEastWestPerPanel));
+    const flatEW = ht.roofType === 'flat' && ht.orientation === 'E_W';
+    if (flatEW) {
+      lines.push(line(settings, 'mounting', 'Flat-roof east/west mounting (back-to-back)', ht.panelCount, settings.flatEastWestPerPanel));
     } else {
       const m = settings.mounting[ht.roofType];
-      lines.push(line(settings, 'mounting', `Mounting kit – ${ROOF_LABELS[ht.roofType].toLowerCase()}`, ht.panelCount, m.perPanel));
+      const desc = ht.roofType === 'flat'
+        ? 'Flat-roof south-facing mounting (incl. windbreakers)'
+        : `Mounting kit – ${ROOF_LABELS[ht.roofType].toLowerCase()}`;
+      lines.push(line(settings, 'mounting', desc, ht.panelCount, m.perPanel));
       if (ht.arrays > 1) {
-        lines.push(line(settings, 'mounting', 'Additional array (rails, cabling, isolator)', ht.arrays - 1, m.perArray));
+        lines.push(line(settings, 'mounting', 'Additional array (rail offcuts, end clamps, caps)', ht.arrays - 1, m.perArray));
       }
+    }
+    if (ht.roofType === 'flat') {
+      const b = settings.ballast;
+      const blocks = Math.ceil(ht.panelCount * (flatEW ? b.blocksPerPanelEW : b.blocksPerPanelSouth));
+      lines.push(line(settings, 'mounting', 'Ballast blocks', blocks, b.blockCost));
     }
   }
 
@@ -202,13 +222,17 @@ function priceHouseType(
     lines.push(line(settings, 'electrical', 'DC isolator, generation meter, AC isolator & cabling', 1, settings.electrical.fixedPerPlot));
   }
 
-  // Labour, from the historical labour curve
+  // Labour, from the labour curve, less any multi-plot discount
   if (ht.panelCount > 0) {
     const factor = settings.labour.roofFactor[ht.roofType] ?? 1;
+    const notes = [
+      factor !== 1 ? `×${factor} roof` : '',
+      labourDiscountPct > 0 ? `−${labourDiscountPct}% multi-plot` : '',
+    ].filter(Boolean).join(', ');
     lines.push(line(
       settings, 'labour',
-      `Installation, testing & commissioning – ${ht.panelCount} panels, ${ROOF_LABELS[ht.roofType].toLowerCase()}${factor !== 1 ? ` (×${factor})` : ''}`,
-      1, labourFor(ht.panelCount, ht.roofType, settings),
+      `Installation, testing & commissioning – ${ht.panelCount} panels${notes ? ` (${notes})` : ''}`,
+      1, round2(labourFor(ht.panelCount, ht.roofType, settings) * (1 - labourDiscountPct / 100)),
     ));
   }
   if (battery) lines.push(line(settings, 'labour', 'Battery installation', 1, settings.labour.batteryInstall));
@@ -225,6 +249,9 @@ function priceHouseType(
   if (ht.orientation === 'N') warnings.push('North-facing arrays generate much less; check the customer understands.');
   const needsG99 = !!inverter && ht.phase === 1 && (inverter.acKw ?? 0) > settings.g98LimitKw;
   if (needsG99) warnings.push(`Inverter is over ${settings.g98LimitKw} kW single-phase; a G99 application is needed.`);
+  if (ht.roofType !== 'flat' && ht.orientation === 'E_W' && ht.arrays < 2) {
+    warnings.push('East/west on a pitched roof is normally two roof faces; set arrays to 2.');
+  }
   if (ht.roofType === 'flat' && ht.arrays > 1 && ht.orientation === 'E_W') {
     warnings.push('Flat-roof E/W systems are priced per panel; additional arrays are not added.');
   }
@@ -254,9 +281,10 @@ function priceHouseType(
 }
 
 export function priceQuote(input: QuoteInput, catalog: Catalog, settings: Settings): QuoteResult {
-  const priced = input.houseTypes.map((ht) => priceHouseType(ht, catalog, settings));
+  const plots = input.houseTypes.reduce((s, h) => s + Math.max(0, h.plots), 0);
+  const labourDiscountPct = input.labourDiscountPct ?? multiPlotDiscount(plots, settings);
+  const priced = input.houseTypes.map((ht) => priceHouseType(ht, catalog, settings, labourDiscountPct));
   const houseTypes = priced.map((p) => p.result);
-  const plots = houseTypes.reduce((s, h) => s + h.plots, 0);
 
   // Project-level lines (once per project, or multiplied across every plot)
   const projectLines: Line[] = [];
@@ -326,6 +354,7 @@ export function priceQuote(input: QuoteInput, catalog: Catalog, settings: Settin
       gross: round2(net + vat),
       margin,
       marginPct: net > 0 ? round2((margin / net) * 100) : 0,
+      labourDiscountPct,
     },
     availability,
     warnings,
