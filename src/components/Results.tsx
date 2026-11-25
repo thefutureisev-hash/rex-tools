@@ -14,12 +14,12 @@ function LineTable({ lines, internal, multiplier }: { lines: Line[]; internal: b
         </tr>
       </thead>
       <tbody>
-        {lines.map((l, i) => (
-          <tr key={i}>
+        {lines.filter((l) => internal || l.sell !== 0).map((l, i) => (
+          <tr key={i} className={l.category === 'package' ? 'pkg' : l.sell === 0 ? 'component' : ''}>
             <td>{l.description}</td>
             <td className="n">{num(l.qty)}</td>
-            {internal && <td className="n muted">{money(l.cost)}</td>}
-            <td className="n">{money(l.sell)}</td>
+            {internal && <td className="n muted">{l.category === 'package' ? '' : money(l.cost)}</td>}
+            <td className="n">{l.sell === 0 && l.cost > 0 ? 'incl.' : money(l.sell)}</td>
           </tr>
         ))}
       </tbody>
@@ -65,7 +65,7 @@ export function Results({ result, catalog, onRefresh, onUpload, uploading }: Pro
           {open === h.id && (
             <>
               <LineTable lines={h.lines} internal={internal} multiplier={h.plots} />
-              <p className="muted small">{h.inverterReason}</p>
+              {internal && <p className="muted small">{h.inverterReason}</p>}
             </>
           )}
           <div className="ht-total"><span>{h.plots} plots</span><span>{money(h.sellTotal)}</span></div>

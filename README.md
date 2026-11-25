@@ -24,7 +24,11 @@ Production: `npm run build && npm start` (serves the app and API on `PORT`, defa
   [panels, £] points, interpolated): about £800–£1,000 for a single house, falling per panel for larger
   systems. Pitched and flat are the same. Battery installation adds £300. Sites with several plots get
   a **multi-plot labour discount** (`labour.multiPlotDiscount` tiers), which can be overridden per quote.
-- **MCS certification** is an optional extra (£400 per plot by default).
+- **Selling price (developer):** the solar system is sold as a package at **£1,500 per unit + £450 per
+  panel** (`developerPricing`), the same for pitched and flat roofs, with +£90/panel for in-roof. The
+  component lines keep their cost (shown with "Show costs & margin") to give the margin. Battery,
+  scaffolding and extras are priced on top (cost + markup, or a fixed price per unit).
+- **MCS certification** is an optional extra: £400 cost, charged at £500 per unit.
 - **Electrical**: DC cable (metres per plot × £/100 m) plus a fixed per-plot amount for the DC isolator,
   generation meter and AC isolator with cabling. Work beyond the AC isolator is entered as an extra.
 - **Scaffolding** is entered per house type (often not needed), or as a whole-site extra.
@@ -51,5 +55,9 @@ What the importer does:
 - Inverter + battery bundles become one product per battery size (up to 30 kWh).
 - Max DC input isn't in the sheet, so it's assumed to be 150% of the AC rating.
 - Midsummer doesn't publish stock, so availability shows "Confirm".
+
+Products missing from the sheet (e.g. small string inverters) can be listed in
+`PRICE_DATA_DIR/extra-products.json` (`{ "priceDate": "...", "products": [...] }`, same fields as the
+catalogue, also not committed).
 
 Until a sheet is uploaded, the app falls back to a fictional sample list (`data/sample-catalog.json`).

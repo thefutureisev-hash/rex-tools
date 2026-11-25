@@ -77,6 +77,8 @@ export interface ExtraInput {
   qty: number;
   /** 'plot' = multiplied by every plot on the site, 'project' = once */
   per: 'plot' | 'project';
+  /** Selling price per unit; when set it replaces cost + markup */
+  unitPrice?: number | null;
 }
 
 export interface QuoteInput {
@@ -119,8 +121,15 @@ export interface Settings {
     multiPlotDiscount: [number, number][];
   };
   ballast: { blockCost: number; blocksPerPanelSouth: number; blocksPerPanelEW: number };
-  /** One-click optional extras offered on the form, with our default cost */
-  optionalExtras: { description: string; cost: number; per: 'plot' | 'project' }[];
+  /** One-click optional extras offered on the form, with our default cost and, optionally, a fixed price */
+  optionalExtras: { description: string; cost: number; price?: number; per: 'plot' | 'project' }[];
+  /** Developer selling price for the solar system: perUnit + perPanel × panels, per plot */
+  developerPricing: {
+    perUnit: number;
+    perPanel: number;
+    /** Added to perPanel for these roof types (e.g. in-roof) */
+    roofAdjustmentPerPanel: Partial<Record<RoofType, number>>;
+  };
   electrical: {
     /** DC isolator, generation meter, AC isolator and cabling, per plot */
     fixedPerPlot: number;
@@ -139,7 +148,7 @@ export interface Settings {
 
 // ---------- Result ----------
 
-export type LineCategory = 'panel' | 'inverter' | 'battery' | 'mounting' | 'electrical' | 'labour' | 'access' | 'extras';
+export type LineCategory = 'package' | 'panel' | 'inverter' | 'battery' | 'mounting' | 'electrical' | 'labour' | 'access' | 'extras';
 
 export interface Line {
   description: string;

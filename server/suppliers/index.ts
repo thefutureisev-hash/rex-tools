@@ -1,9 +1,10 @@
 import type { Catalog } from '../../shared/types';
+import { extraProducts } from './extraProducts';
 import { midsummerSupplier } from './midsummerProvider';
 import { sampleSupplier } from './sample';
 import type { SupplierProvider } from './types';
 
-const providers: SupplierProvider[] = [midsummerSupplier];
+const providers: SupplierProvider[] = [midsummerSupplier, extraProducts];
 
 /** How long supplier prices are cached before re-loading */
 const CACHE_MS = 10 * 60 * 1000;

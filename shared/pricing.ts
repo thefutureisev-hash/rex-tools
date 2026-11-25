@@ -256,6 +256,21 @@ function priceHouseType(
     warnings.push('Flat-roof E/W systems are priced per panel; additional arrays are not added.');
   }
 
+  // Selling price: the solar system is sold as a package at a fixed price per unit
+  // plus a price per panel. Its component lines keep their cost (shown internally)
+  // but carry no separate price. Battery, scaffolding and extras are priced on top.
+  const dp = settings.developerPricing;
+  if (dp && ht.panelCount > 0) {
+    const packaged = new Set<LineCategory>(['panel', 'inverter', 'mounting', 'electrical', 'labour']);
+    for (const l of lines) if (packaged.has(l.category) && l.description !== 'Battery installation') l.sell = 0;
+    const perPanel = dp.perPanel + (dp.roofAdjustmentPerPanel[ht.roofType] ?? 0);
+    lines.unshift({
+      description: `Solar PV system – ${ht.panelCount} panels`,
+      category: 'package', qty: 1, unitCost: 0, cost: 0,
+      sell: round2(dp.perUnit + perPanel * ht.panelCount),
+    });
+  }
+
   const costPerPlot = round2(lines.reduce((s, l) => s + l.cost, 0));
   const sellPerPlot = round2(lines.reduce((s, l) => s + l.sell, 0));
   const plots = Math.max(0, ht.plots);
@@ -291,7 +306,10 @@ export function priceQuote(input: QuoteInput, catalog: Catalog, settings: Settin
   for (const e of input.extras) {
     if (!e.description && !e.unitCost) continue;
     const qty = e.per === 'plot' ? e.qty * plots : e.qty;
-    projectLines.push(line(settings, 'extras', e.description || 'Extra', qty, e.unitCost));
+    const l = line(settings, 'extras', e.description || 'Extra', qty, e.unitCost);
+    // A fixed selling price per unit overrides the markup
+    if (e.unitPrice != null) l.sell = round2(qty * e.unitPrice);
+    projectLines.push(l);
   }
   if (priced.some((p) => p.needsG99 && p.result.plots > 0)) {
     projectLines.push(line(settings, 'extras', 'DNO G99 application', 1, settings.g99ApplicationCost));

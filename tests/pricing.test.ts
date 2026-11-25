@@ -72,10 +72,34 @@ describe('priceQuote', () => {
     expect(r.totals.plots).toBe(10);
   });
 
-  it('applies markup per category', () => {
-    const r = priceQuote(quote([house()]), catalog, settings);
-    const panels = r.houseTypes[0].lines.find((l) => l.category === 'panel')!;
-    expect(panels.sell).toBe(Math.round(624 * 1.25 * 100) / 100);
+  it('sells the solar system at £perUnit + £perPanel × panels', () => {
+    const { perUnit, perPanel } = settings.developerPricing;
+    for (const n of [2, 4, 7, 10]) {
+      const h = priceQuote(quote([house({ panelCount: n })]), catalog, settings).houseTypes[0];
+      expect(h.sellPerPlot).toBe(perUnit + perPanel * n);
+      // component lines carry cost but no separate price
+      expect(h.lines.filter((l) => l.category === 'panel' || l.category === 'labour').every((l) => l.sell === 0)).toBe(true);
+    }
+  });
+
+  it('prices pitched and flat roofs the same, and adds the in-roof uplift', () => {
+    const sell = (roofType: HouseTypeInput['roofType']) =>
+      priceQuote(quote([house({ roofType })]), catalog, settings).houseTypes[0].sellPerPlot;
+    expect(sell('pitched_tile')).toBe(sell('flat'));
+    expect(sell('in_roof')).toBe(sell('flat') + 8 * (settings.developerPricing.roofAdjustmentPerPanel.in_roof ?? 0));
+  });
+
+  it('prices battery and scaffolding on top of the package', () => {
+    const base = priceQuote(quote([house()]), catalog, settings).houseTypes[0].sellPerPlot;
+    const more = priceQuote(quote([house({ batterySku: 'BAT-CL5', scaffoldPerPlot: 500 })]), catalog, settings).houseTypes[0].sellPerPlot;
+    expect(more).toBeGreaterThan(base + 500);
+  });
+
+  it('uses a fixed selling price for extras when given (MCS at £500)', () => {
+    const r = priceQuote(quote([house({ plots: 4 })], {
+      extras: [{ id: 'm', description: 'MCS certification', unitCost: 400, unitPrice: 500, qty: 1, per: 'plot' }],
+    }), catalog, settings);
+    expect(r.projectLines[0]).toMatchObject({ qty: 4, cost: 1600, sell: 2000 });
   });
 
   it('uses flat east/west ballast pricing', () => {

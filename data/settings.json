@@ -1,5 +1,6 @@
 {
   "markup": {
+    "package": 0,
     "panel": 25,
     "inverter": 25,
     "battery": 20,
@@ -105,7 +106,8 @@
     {
       "description": "MCS certification",
       "cost": 400,
-      "per": "plot"
+      "per": "plot",
+      "price": 500
     },
     {
       "description": "Scaffolding (whole site)",
@@ -256,6 +258,13 @@
         "standard": 0,
         "sigenergy": 700
       }
+    }
+  },
+  "developerPricing": {
+    "perUnit": 1500,
+    "perPanel": 450,
+    "roofAdjustmentPerPanel": {
+      "in_roof": 90
     }
   }
 }

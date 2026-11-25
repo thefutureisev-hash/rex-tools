@@ -166,11 +166,12 @@ export default function App() {
 
           <section className="card">
             <h2>Extra costs</h2>
-            <p className="muted small">Enter our cost; markup is added automatically. "Per plot" items are multiplied by every plot on the site.</p>
+            <p className="muted small">Enter our cost, and a selling price if it's fixed (otherwise markup is added). "Per plot" items are multiplied by every plot on the site.</p>
             {quote.extras.map((x, i) => (
               <div className="extra" key={x.id}>
                 <input placeholder="Description, e.g. bird mesh" value={x.description} onChange={(e) => setExtra(i, { ...x, description: e.target.value })} />
-                <input type="number" min={0} step="0.01" placeholder="Cost £" value={x.unitCost || ''} onChange={(e) => setExtra(i, { ...x, unitCost: +e.target.value })} />
+                <input type="number" min={0} step="0.01" placeholder="Cost £" title="Our cost per unit" value={x.unitCost || ''} onChange={(e) => setExtra(i, { ...x, unitCost: +e.target.value })} />
+                <input type="number" min={0} step="0.01" placeholder="Price: auto" title="Selling price per unit (blank = cost + markup)" value={x.unitPrice ?? ''} onChange={(e) => setExtra(i, { ...x, unitPrice: e.target.value === '' ? null : +e.target.value })} />
                 <input type="number" min={0} value={x.qty} onChange={(e) => setExtra(i, { ...x, qty: +e.target.value })} />
                 <select value={x.per} onChange={(e) => setExtra(i, { ...x, per: e.target.value as ExtraInput['per'] })}>
                   <option value="plot">per plot</option>
@@ -182,8 +183,8 @@ export default function App() {
             <div className="chips">
               {(settings?.optionalExtras ?? []).map((x) => (
                 <button key={x.description} className="chip" onClick={() => setQuote((q) => ({
-                  ...q, extras: [...q.extras, { id: uid(), description: x.description, unitCost: x.cost, qty: 1, per: x.per }],
-                }))}>+ {x.description}{x.cost ? ` (£${x.cost}${x.per === 'plot' ? '/plot' : ''})` : ''}</button>
+                  ...q, extras: [...q.extras, { id: uid(), description: x.description, unitCost: x.cost, unitPrice: x.price ?? null, qty: 1, per: x.per }],
+                }))}>+ {x.description}{x.price || x.cost ? ` (£${x.price ?? x.cost}${x.per === 'plot' ? '/plot' : ''})` : ''}</button>
               ))}
               <button className="chip" onClick={() => setQuote((q) => ({ ...q, extras: [...q.extras, { id: uid(), description: '', unitCost: 0, qty: 1, per: 'plot' }] }))}>+ Custom</button>
             </div>
