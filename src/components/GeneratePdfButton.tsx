@@ -17,7 +17,7 @@ export function GeneratePdfButton({ build, project, disabled }: { build: () => Q
           setBusy(true);
           setError('');
           try {
-            saveFile(await makeQuotePdf(data), pdfFileName(project));
+            await saveFile(await makeQuotePdf(data), pdfFileName(project));
           } catch (e) {
             setError((e as Error).message || 'Could not create the PDF.');
           } finally {

@@ -7,6 +7,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 export default defineConfig(({ mode }) => ({
   plugins: mode === 'static' ? [react(), viteSingleFile()] : [react()],
   server: { proxy: { '/api': 'http://localhost:3001' } },
-  build: { outDir: mode === 'static' ? 'dist-static' : 'dist' },
+  // The static build keeps the template file the export script copies next to the page
+  build: { outDir: mode === 'static' ? 'dist-static' : 'dist', emptyOutDir: mode !== 'static' },
   define: { __STATIC__: JSON.stringify(mode === 'static') },
 }));
