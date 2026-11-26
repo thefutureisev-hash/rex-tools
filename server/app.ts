@@ -8,7 +8,7 @@ import {
 } from './auth';
 import { DIST_DIR, WELL_KNOWN_DIRS } from './paths';
 import { getSettings } from './settings';
-import { readPrivateFile, writePrivateFile, writePrivateJson } from './storage';
+import { readPrivateFile, readPrivateJson, statPrivateFile, writePrivateFile, writePrivateJson } from './storage';
 import { clearCatalogCache, getCatalog } from './suppliers';
 import { importMidsummerSheet } from './suppliers/midsummerProvider';
 
@@ -81,6 +81,20 @@ app.get('/api/users', requireAdmin, listUsers);
 app.post('/api/users', requireAdmin, addUser);
 app.delete('/api/users/:id', requireAdmin, removeUser);
 app.post('/api/users/:id/password', requireAdmin, setPassword);
+
+// What data is currently loaded on the server
+app.get('/api/admin/data-status', requireAdmin, async (_req, res) => {
+  const ms = await readPrivateJson<{ priceDate?: string; importedAt?: string; products: unknown[] }>('midsummer.json');
+  const extra = await readPrivateJson<{ products: unknown[] }>('extra-products.json');
+  const [msFile, tpl, extraFile] = await Promise.all([
+    statPrivateFile('midsummer.json'), statPrivateFile('templates/solar-quote-template.pdf'), statPrivateFile('extra-products.json'),
+  ]);
+  res.json({
+    midsummer: ms ? { priceDate: ms.priceDate ?? null, products: ms.products.length, updatedAt: ms.importedAt ?? msFile?.updatedAt } : null,
+    template: tpl,
+    extraProducts: extra ? { products: extra.products.length, updatedAt: extraFile?.updatedAt } : null,
+  });
+});
 
 // Midsummer trade price sheet (.xlsx)
 app.post('/api/suppliers/midsummer/upload', requireAdmin, raw, async (req, res) => {

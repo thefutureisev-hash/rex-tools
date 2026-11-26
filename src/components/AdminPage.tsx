@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import {
-  addUser, changeOwnPassword, listUsers, removeUser, resetPassword, uploadExtraProducts, uploadMidsummer, uploadTemplate, type User,
+  addUser, changeOwnPassword, getDataStatus, listUsers, removeUser, resetPassword, uploadExtraProducts, uploadMidsummer, uploadTemplate,
+  type DataStatus, type User,
 } from '../api';
 import { ConfirmButton } from './ConfirmButton';
 
@@ -28,27 +29,6 @@ export function AdminPage({ me, onDataChanged }: { me: User; onDataChanged: () =
       setError((e as Error).message);
     }
   };
-
-  const fileInput = (label: string, accept: string, fn: (f: File) => Promise<unknown>, done: (r: never) => string) => (
-    <label className="upload-row">
-      <span>{label}</span>
-      <input type="file" accept={accept} onChange={async (e) => {
-        const f = e.target.files?.[0];
-        e.target.value = '';
-        if (!f) return;
-        setError('');
-        setNotice('Uploading…');
-        try {
-          const r = await fn(f);
-          setNotice(done(r as never));
-          onDataChanged();
-        } catch (err) {
-          setNotice('');
-          setError((err as Error).message);
-        }
-      }} />
-    </label>
-  );
 
   return (
     <main className="admin">
@@ -112,11 +92,7 @@ export function AdminPage({ me, onDataChanged }: { me: User; onDataChanged: () =
         <section className="card">
           <h2>Data files</h2>
           <p className="muted small">These are stored on the server only, never in GitHub.</p>
-          {fileInput('Midsummer trade price sheet (.xlsx)', '.xlsx', uploadMidsummer,
-            (r: { priceDate?: string; panels: number; inverters: number; batteries: number; bundles: number }) =>
-              `Midsummer prices${r.priceDate ? ` dated ${r.priceDate}` : ''} loaded: ${r.panels} panels, ${r.inverters} inverters, ${r.batteries} batteries, ${r.bundles} bundle options.`)}
-          {fileInput('Quotation template (prepared PDF)', 'application/pdf', uploadTemplate, () => 'Quotation template saved.')}
-          {fileInput('Extra products (.json)', 'application/json,.json', uploadExtraProducts, (r: { products: number }) => `${r.products} extra products loaded.`)}
+          <DataFiles onDataChanged={onDataChanged} />
         </section>
       )}
 
@@ -134,3 +110,83 @@ export function AdminPage({ me, onDataChanged }: { me: User; onDataChanged: () =
     </main>
   );
 }
+
+const when = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+
+/** The three private data files: what's loaded now, and an upload with its own status line. */
+function DataFiles({ onDataChanged }: { onDataChanged: () => void }) {
+  const [status, setStatus] = useState<DataStatus | null>(null);
+  const [loadError, setLoadError] = useState('');
+  const load = () => getDataStatus().then((s) => { setStatus(s); setLoadError(''); }).catch((e) => setLoadError(e.message));
+  useEffect(() => { load(); }, []);
+
+  const ms = status?.midsummer;
+  const tpl = status?.template;
+  const extra = status?.extraProducts;
+  return (
+    <>
+      {loadError && <p className="warn">Could not read what is loaded: {loadError}</p>}
+      <UploadRow
+        label="Midsummer trade price sheet (.xlsx)"
+        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        current={status ? (ms ? `Loaded: prices dated ${ms.priceDate ?? 'unknown'}, ${ms.products} products (uploaded ${when(ms.updatedAt)})` : 'Not uploaded yet') : 'Checking…'}
+        upload={async (f) => {
+          const r = await uploadMidsummer(f);
+          return `Done: prices${r.priceDate ? ` dated ${r.priceDate}` : ''}, ${r.panels} panels, ${r.inverters} inverters, ${r.batteries} batteries, ${r.bundles} bundle options.`;
+        }}
+        after={() => { load(); onDataChanged(); }}
+      />
+      <UploadRow
+        label="Quotation template (prepared PDF)"
+        accept=".pdf,application/pdf"
+        current={status ? (tpl ? `Loaded: ${(tpl.bytes / 1_048_576).toFixed(1)} MB (uploaded ${when(tpl.updatedAt)})` : 'Not uploaded yet') : 'Checking…'}
+        upload={async (f) => { await uploadTemplate(f); return 'Done: quotation template saved.'; }}
+        after={() => { load(); onDataChanged(); }}
+      />
+      <UploadRow
+        label="Extra products (.json)"
+        accept=""
+        current={status ? (extra ? `Loaded: ${extra.products} products (uploaded ${when(extra.updatedAt)})` : 'Not uploaded yet') : 'Checking…'}
+        upload={async (f) => { const r = await uploadExtraProducts(f); return `Done: ${r.products} extra products loaded.`; }}
+        after={() => { load(); onDataChanged(); }}
+      />
+    </>
+  );
+}
+
+function UploadRow({ label, accept, current, upload, after }: {
+  label: string;
+  accept: string;
+  current: string;
+  upload: (f: File) => Promise<string>;
+  after: () => void;
+}) {
+  const [state, setState] = useState<{ kind: 'idle' | 'busy' | 'ok' | 'error'; text: string }>({ kind: 'idle', text: '' });
+  return (
+    <div className="upload-block">
+      <label className="upload-row">
+        <span>
+          {label}
+          <span className={`small ${current.startsWith('Loaded') ? 'good-text' : 'muted'} block`}>{current}</span>
+        </span>
+        <input type="file" accept={accept || undefined} disabled={state.kind === 'busy'} onChange={async (e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (!f) return;
+          setState({ kind: 'busy', text: `Uploading ${f.name} (${(f.size / 1_048_576).toFixed(1)} MB)…` });
+          try {
+            setState({ kind: 'ok', text: await upload(f) });
+            after();
+          } catch (err) {
+            setState({ kind: 'error', text: `Upload failed: ${(err as Error).message}` });
+          }
+        }} />
+      </label>
+      {state.kind !== 'idle' && (
+        <p className={state.kind === 'error' ? 'warn' : state.kind === 'ok' ? 'notice-inline' : 'muted small'} role="status">{state.text}</p>
+      )}
+    </div>
+  );
+}
+

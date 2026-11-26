@@ -75,6 +75,13 @@ export interface UploadSummary {
 const upload = <T,>(path: string, file: File) =>
   api<T>(path, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file });
 
+export interface DataStatus {
+  midsummer: { priceDate: string | null; products: number; updatedAt?: string } | null;
+  template: { bytes: number; updatedAt: string } | null;
+  extraProducts: { products: number; updatedAt?: string } | null;
+}
+export const getDataStatus = () => api<DataStatus>('/api/admin/data-status');
+
 export const uploadMidsummer = (file: File) => upload<UploadSummary>('/api/suppliers/midsummer/upload', file);
 export const uploadTemplate = (file: File) => upload<{ bytes: number }>('/api/admin/template', file);
 export const uploadExtraProducts = (file: File) => upload<{ products: number }>('/api/admin/extra-products', file);

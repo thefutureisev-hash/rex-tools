@@ -168,3 +168,9 @@ button.primary:disabled { opacity: 0.6; cursor: default; }
 .inline input { width: 160px; }
 .upload-row { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); color: var(--ink); font-size: 13px; flex-wrap: wrap; }
 .upload-row input { width: auto; }
+.upload-block { border-top: 1px solid var(--line); }
+.upload-block .upload-row { border-top: 0; }
+.block { display: block; margin-top: 2px; }
+.good-text { color: var(--brand); }
+.notice-inline { background: var(--tint); color: var(--brand); font-size: 13px; padding: 6px 10px; border-radius: 6px; margin: 0 0 10px; }
+.upload-block .warn { margin: 0 0 10px; }
