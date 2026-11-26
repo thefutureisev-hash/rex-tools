@@ -102,6 +102,8 @@ export default function App({ user, onSignOut }: { user: User; onSignOut: () => 
     return () => clearTimeout(t);
   }, [quote, catalog]);
 
+  // The layout image stays in memory only (not saved with the draft)
+  const [layout, setLayout] = useState<{ bytes: Uint8Array; type: 'png' | 'jpg'; name: string } | null>(null);
   const setProject = (k: keyof QuoteInput['project'], v: string) =>
     setQuote((q) => ({ ...q, project: { ...q.project, [k]: v } }));
   const setHouse = (i: number, h: HouseTypeInput) =>
@@ -151,9 +153,18 @@ export default function App({ user, onSignOut }: { user: User; onSignOut: () => 
             <h2>Project</h2>
             <div className="grid">
               <label>Developer / client<input value={quote.project.clientName} onChange={(e) => setProject('clientName', e.target.value)} /></label>
+              <label>Contact name<input value={quote.project.contactName ?? ''} onChange={(e) => setProject('contactName', e.target.value)} /></label>
               <label>Our reference<input value={quote.project.reference} onChange={(e) => setProject('reference', e.target.value)} /></label>
               <label>Site / development name<input value={quote.project.siteName} onChange={(e) => setProject('siteName', e.target.value)} /></label>
               <label>Site address<input value={quote.project.siteAddress} onChange={(e) => setProject('siteAddress', e.target.value)} /></label>
+              <label className="span2">Satellite panel layout for the quote (optional image)
+                <input type="file" accept="image/png,image/jpeg" onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) { setLayout(null); return; }
+                  setLayout({ bytes: new Uint8Array(await file.arrayBuffer()), type: file.type === 'image/png' ? 'png' : 'jpg', name: file.name });
+                }} />
+                {layout && <span className="small muted">{layout.name} · <button type="button" className="link" onClick={() => setLayout(null)}>Remove</button></span>}
+              </label>
             </div>
           </section>
 
@@ -252,7 +263,9 @@ export default function App({ user, onSignOut }: { user: User; onSignOut: () => 
             <GeneratePdfButton
               project={quote.project.siteName || quote.project.clientName}
               disabled={!result || !catalog || !settings || result.totals.plots === 0}
-              build={() => (result && catalog && settings ? developerPdfData(quote, result, settings, catalog) : null)}
+              build={() => (result && catalog && settings
+                ? developerPdfData(quote, result, settings, catalog, layout ? { bytes: layout.bytes, type: layout.type } : undefined)
+                : null)}
             />
           }
           result={result}

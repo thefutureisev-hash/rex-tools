@@ -33,14 +33,27 @@ const devQuote = (houseTypes: HouseTypeInput[]): QuoteInput => ({
 });
 
 describe('quote PDF', () => {
-  it('builds a developer quote without the design page, with a 60/40 schedule', async () => {
+  it('builds a developer quote without the production page, with a 60/40 schedule', async () => {
     const q = devQuote([house()]);
     const r = priceQuote(q, catalog, settings);
     expect(r.payments.map((p) => p.pct)).toEqual([60, 40]);
     const data = developerPdfData(q, r, settings, catalog);
     expect(data.rows[0]).toMatchObject({ qty: 8, unit: 3300, amount: 26400 });
+    expect(data.scope.heading).toBe(`${r.houseTypes[0].kWp.toFixed(2)} kWp Solar PV system × 8`);
+    expect(data.terms.payment).toBe('60% on acceptance of quotation; 40% prior to installation');
+    // cover, about, services, solar, scope, costing, notes, recent work
     const pdf = await PDFDocument.load(await buildQuotePdf(data, await assets()));
-    expect(pdf.getPageCount()).toBe(10);
+    expect(pdf.getPageCount()).toBe(8);
+  });
+
+  it('adds the satellite layout page when an image is given', async () => {
+    const q = devQuote([house()]);
+    const r = priceQuote(q, catalog, settings);
+    // a 1×1 PNG
+    const bytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
+    const data = developerPdfData(q, r, settings, catalog, { bytes, type: 'png' });
+    const pdf = await PDFDocument.load(await buildQuotePdf(data, await assets()));
+    expect(pdf.getPageCount()).toBe(9);
   });
 
   it('adds costing pages when there are many lines', async () => {
@@ -48,10 +61,10 @@ describe('quote PDF', () => {
     const q = devQuote(many);
     const r = priceQuote(q, catalog, settings);
     const pdf = await PDFDocument.load(await buildQuotePdf(developerPdfData(q, r, settings, catalog), await assets()));
-    expect(pdf.getPageCount()).toBeGreaterThan(10);
+    expect(pdf.getPageCount()).toBeGreaterThan(8);
   });
 
-  it('builds a residential quote with the design page and estimated generation', async () => {
+  it('builds a residential quote with the production page and estimated generation', async () => {
     const input: ResidentialInput = {
       client: { name: 'Example Client', address: '1 Example Street', phone: '', email: '' }, reference: 'R-001',
       panelSku: 'PNL-HX450', panelCount: 10, roof: 'pitched', orientation: 'S', systemTypeId: 'standard',
@@ -61,8 +74,11 @@ describe('quote PDF', () => {
     expect(r.annualKwh).toBe(Math.round(4.5 * settings.specificYield.S));
     const data = residentialPdfData(input, r, settings, catalog);
     expect(data.payments.map((p) => p.pct)).toEqual([20, 50, 25, 5]);
+    expect(data.production!.monthlyKwh.reduce((a, b) => a + b, 0)).toBeCloseTo(r.annualKwh, 0);
+    expect(data.terms.payment.length).toBeLessThan(110);
+    // cover, about, services, solar, scope, production, costing, notes, recent work
     const pdf = await PDFDocument.load(await buildQuotePdf(data, await assets()));
-    expect(pdf.getPageCount()).toBe(11);
+    expect(pdf.getPageCount()).toBe(9);
   });
 
   it('uses a custom payment schedule when agreed', () => {

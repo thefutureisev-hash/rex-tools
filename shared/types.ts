@@ -85,6 +85,8 @@ export interface QuoteInput {
   projectType: ProjectType;
   project: {
     clientName: string;
+    /** Person the quote is addressed to */
+    contactName?: string;
     siteName: string;
     siteAddress: string;
     reference: string;
@@ -131,6 +133,8 @@ export interface Settings {
   /** One-click optional extras offered on the form, with our default cost and, optionally, a fixed price */
   optionalExtras: { description: string; cost: number; price?: number; per: 'plot' | 'project' }[];
   developerPaymentSchedule: PaymentStage[];
+  /** Share of annual generation in each month, Jan–Dec (typical UK south-facing profile) */
+  monthlyShare: number[];
   pdf: {
     validityDays: number;
     developer: { notes: string[]; included: string[]; excluded: string[] };

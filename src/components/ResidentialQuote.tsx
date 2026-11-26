@@ -133,7 +133,7 @@ export function ResidentialQuote({ catalog, settings }: { catalog: Catalog | nul
                 {Object.entries(ORIENTATION_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
               </select>
             </label>
-            <label className="span2">Design image for the quote (optional)
+            <label className="span2">Satellite panel layout for the quote (optional image)
               <input type="file" accept="image/png,image/jpeg" onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) { setImage(null); return; }

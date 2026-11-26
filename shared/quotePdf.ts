@@ -2,25 +2,32 @@ import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, type PDFFont, type PDFPage, rgb, type RGB } from 'pdf-lib';
 
 /**
- * Builds the customer quote PDF from REX's Canva "Solar Quotation Template".
- * Fixed pages are copied as they are; the cover, scope, design (residential only)
- * and costing pages are filled in. The template must first be prepared with
+ * Builds the customer quote PDF from REX's Canva "Commercial Solar Quotation"
+ * master template. Fixed pages are copied as they are; the cover, scope of works,
+ * satellite layout (when an image is given), solar production (residential),
+ * costing and notes pages are filled in. The finance page is left out until
+ * finance is offered. The template must first be prepared with
  * scripts/prepare-template.mts, which hides its placeholder text.
  *
  * Coordinates are PDF points from the top-left corner of an A4 page.
  */
 
+type Box = [number, number, number, number];
+
 export const TEMPLATE = {
-  pages: { cover: 0, about: 1, services: 2, solar: 3, scope: 4, design: 5, costing: 6, nextSteps: 7, work: [8, 9, 10] },
-  /** Areas on the cover rebuilt from their surroundings (placeholders and a stray text box) */
-  coverPatches: {
-    pill: [56, 229, 124, 246],
-    paragraph: [243, 656, 354, 676],
-    prepared: [47, 695, 320, 734],
-  } as Record<string, [number, number, number, number]>,
-  scope: { clearBox: [50, 360, 260, 382] as number[] },
-  costing: { clearBox: [30, 195, 570, 742] as number[] },
-  colors: { pageTint: [0xf5 / 255, 0xf7 / 255, 0xf4 / 255] as [number, number, number] },
+  pages: {
+    cover: 0, about: 1, services: 2, solar: 3, scope: 4, layout: 5, production: 6,
+    costing: 7, finance: 8, notes: 9, work: 10,
+  },
+  /** Areas rebuilt from their surroundings by prepare-template, by page index */
+  patches: {
+    0: { address: [60, 229, 150, 246], prepared: [92, 715, 556, 737] },
+    4: { heading: [40, 201, 445, 228], values: [174, 244, 450, 617], footnote: [40, 648, 400, 664] },
+    5: { line1: [40, 168, 180, 190], line2: [40, 189, 470, 211], foot: [55, 743, 460, 761] },
+    6: { heading: [40, 196, 512, 224], line: [34, 254, 472, 274], body: [34, 292, 550, 424] },
+    7: { region: [34, 170, 562, 662] },
+    9: { project: [40, 662, 556, 689] },
+  } as Record<number, Record<string, Box>>,
 };
 
 const hex = (h: string): RGB => rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
@@ -30,6 +37,11 @@ const C = {
   lime: hex('#59c923'),
   limeText: hex('#94dc00'),
   green: hex('#1c8a3e'),
+  heading: hex('#24784a'),
+  value: hex('#263d34'),
+  body: hex('#233d33'),
+  navy: hex('#243447'),
+  faint: hex('#9aa8a1'),
   tint: hex('#f1f8f2'),
   border: hex('#d6e8da'),
   rowLine: hex('#e3efe5'),
@@ -37,23 +49,30 @@ const C = {
   white: hex('#ffffff'),
 };
 
+/** Rows of the "Scope of Works" page, in the template's order */
+export const SCOPE_ROWS = ['address', 'roof', 'modules', 'inverter', 'battery', 'included', 'electrical', 'access', 'approvals'] as const;
+export type ScopeRow = (typeof SCOPE_ROWS)[number];
+
 export interface QuotePdfData {
   kind: 'developer' | 'residential';
   projectName: string;
+  /** Person the quote is for */
+  contact: string;
+  /** Company or client name */
   clientName: string;
   address: string;
   /** Display date, e.g. "25 November 2026" */
   date: string;
   reference: string;
   scope: {
-    summary: string[];
-    /** Optional table (developer house types) */
-    table?: { headers: string[]; widths: number[]; align?: ('left' | 'right')[]; rows: string[][] };
-    /** Optional label/value pairs (residential system) */
-    details?: [string, string][];
-    included: string[];
-    excluded: string[];
+    heading: string;
+    /** Two lines per row */
+    rows: Record<ScopeRow, [string, string]>;
+    /** Follows "Final design and pricing: " */
+    footnote: string;
   };
+  layout?: { line1: string; line2: string; image: { bytes: Uint8Array; type: 'png' | 'jpg' } };
+  production?: { heading: string; line: string; monthlyKwh: number[]; notes: string[] };
   rows: { description: string; detail?: string; qty: number; unit: number; amount: number }[];
   subtotal: number;
   discount: number;
@@ -62,11 +81,7 @@ export interface QuotePdfData {
   total: number;
   notes: string[];
   payments: { pct: number; label: string; amount: number }[];
-  design?: {
-    tiles: [string, string][];
-    lines: string[];
-    image?: { bytes: Uint8Array; type: 'png' | 'jpg' };
-  };
+  terms: { exclusions: string; vat: string; payment: string };
 }
 
 export interface PdfAssets {
@@ -103,9 +118,11 @@ export async function buildQuotePdf(data: QuotePdfData, assets: PdfAssets): Prom
   drawCover(await copy(P.cover), data, f);
   for (const i of [P.about, P.services, P.solar]) await copy(i);
   drawScope(await copy(P.scope), data, f);
-  if (data.kind === 'residential' && data.design) await drawDesign(await copy(P.design), data, f, doc);
+  if (data.layout) await drawLayout(await copy(P.layout), data.layout, f, doc);
+  if (data.production) drawProduction(await copy(P.production), data.production, f);
   await drawCosting(data, f, () => copy(P.costing));
-  for (const i of [P.nextSteps, ...P.work]) await copy(i);
+  drawNotes(await copy(P.notes), data, f);
+  await copy(P.work);
 
   return doc.save();
 }
@@ -176,127 +193,90 @@ function accentBar(page: PDFPage, x: number, top: number) {
 // ---------- pages ----------
 
 function drawCover(page: PDFPage, d: QuotePdfData, f: Fonts) {
-  text(page, d.projectName || 'Solar PV proposal', 60, 232.5, 10, f.medium, C.white, { max: 225 });
-  text(page, 'Prepared for', 49.4, 699, 10, f.regular, C.limeText);
-  const who = [d.clientName, d.address, d.date].filter(Boolean).join('   |   ');
-  text(page, who, 49.4, 717, 10, f.regular, C.white, { max: 495 });
+  text(page, d.address || d.projectName || 'Solar PV proposal', 63, 233.5, 8.5, f.medium, C.white, { max: 215 });
+  const who = [d.contact, d.clientName, d.date].filter(Boolean).join('   |   ');
+  text(page, who, 95.9, 720, 10.5, f.regular, C.white, { max: 450 });
 }
 
 function drawScope(page: PDFPage, d: QuotePdfData, f: Fonts) {
-  const s = d.scope;
-  // Summary inside the "Proposed installation scope" box
-  let y = 240;
-  for (const line of s.summary.slice(0, 4)) {
-    text(page, line, 55, y, 10, f.regular, C.ink, { max: 485 });
-    y += 14;
-  }
-
-  y = 330;
-  if (s.table) {
-    const t = s.table;
-    const x0 = 42;
-    const x1 = 553;
-    roundRect(page, x0, y, x1, y + 22, { fill: C.dark, r: 6 });
-    let x = x0 + 8;
-    const cols = t.widths.map((w) => { const start = x; x += w; return start; });
-    const right = (i: number) => (t.align?.[i] === 'right');
-    // Left-aligned text after a right-aligned column gets a gap so the two don't run together
-    const at = (i: number) => (right(i) ? cols[i] + t.widths[i] - 6 : cols[i] + (i > 0 && right(i - 1) ? 8 : 0));
-    t.headers.forEach((h, i) => {
-      text(page, h === 'kWp' ? h : h.toUpperCase(), at(i), y + 7.5, 7, f.bold, C.white, { align: right(i) ? 'right' : 'left' });
-    });
-    y += 22;
-    t.rows.forEach((row, ri) => {
-      if (y > 700) return;
-      if (ri % 2 === 1) page.drawRectangle({ x: x0, y: pageTop(page) - y - 22, width: x1 - x0, height: 22, color: C.tint });
-      row.forEach((cell, i) => {
-        text(page, cell, at(i), y + 7, 8.5, i === 0 ? f.medium : f.regular, C.ink, {
-          align: right(i) ? 'right' : 'left', max: t.widths[i] - 12,
-        });
-      });
-      y += 22;
-      hline(page, x0, x1, y, C.rowLine);
-    });
-    y += 18;
-  }
-
-  if (s.details) {
-    for (const [label, value] of s.details) {
-      if (y > 690) break;
-      text(page, label, 55, y, 8.5, f.regular, C.muted);
-      const lines = wrap(value, f.medium, 9.5, 330);
-      lines.forEach((l, i) => text(page, l, 200, y + i * 12, 9.5, f.medium, C.ink));
-      y += Math.max(1, lines.length) * 12 + 6;
-      hline(page, 55, 540, y - 3, C.rowLine);
-    }
-    y += 12;
-  }
-
-  // Included / not included, side by side
-  const top = Math.min(y, 640);
-  const col = (title: string, items: string[], x: number) => {
-    text(page, title, x, top, 10, f.bold, C.green);
-    accentBar(page, x, top + 15);
-    let yy = top + 26;
-    for (const it of items) {
-      const lines = wrap(it, f.regular, 8.5, 225);
-      if (yy + lines.length * 11 > 790) break;
-      page.drawCircle({ x: x + 2, y: pageTop(page) - yy - 4, size: 1.6, color: C.lime });
-      lines.forEach((l, i) => text(page, l, x + 9, yy + i * 11, 8.5, f.regular, C.ink));
-      yy += lines.length * 11 + 4;
-    }
-  };
-  col('Included', s.included, 55);
-  col('Not included', s.excluded, 310);
+  text(page, d.scope.heading, 42, 205.5, 16, f.bold, C.heading, { max: 505 });
+  const tops = [246.2, 289.0, 331.7, 374.5, 417.3, 460.0, 502.8, 545.6, 588.3];
+  SCOPE_ROWS.forEach((key, i) => {
+    const [a, b] = d.scope.rows[key];
+    text(page, a, 176.3, tops[i] + 1, 9.5, f.regular, C.value, { max: 375 });
+    if (b) text(page, b, 176.3, tops[i] + 15.3, 9.5, f.regular, C.value, { max: 375 });
+  });
+  const foot = wrap(`Final design and pricing: ${d.scope.footnote}`, f.regular, 8, 505);
+  foot.slice(0, 2).forEach((l, i) => text(page, l, 42, 652 + i * 11, 8, f.regular, C.faint));
 }
 
-async function drawDesign(page: PDFPage, d: QuotePdfData, f: Fonts, doc: PDFDocument) {
-  const g = d.design!;
-  let y = 170;
-  if (g.image) {
-    const img = g.image.type === 'png' ? await doc.embedPng(g.image.bytes) : await doc.embedJpg(g.image.bytes);
-    const maxW = 511;
-    const maxH = 330;
-    const scale = Math.min(maxW / img.width, maxH / img.height);
-    const w = img.width * scale;
-    const h = img.height * scale;
-    page.drawImage(img, { x: 42 + (maxW - w) / 2, y: pageTop(page) - y - h, width: w, height: h });
-    y += h + 24;
-  }
-  // Tiles in the brochure's dark style
-  const n = g.tiles.length;
-  const gap = 10;
-  const w = (511 - gap * (n - 1)) / n;
-  g.tiles.forEach(([value, label], i) => {
-    const x = 42 + i * (w + gap);
-    roundRect(page, x, y, x + w, y + 62, { fill: C.dark, r: 8 });
-    text(page, value, x + 12, y + 14, 16, f.medium, C.limeText, { max: w - 20 });
-    text(page, label, x + 12, y + 40, 8, f.regular, C.white, { max: w - 20 });
+async function drawLayout(page: PDFPage, l: NonNullable<QuotePdfData['layout']>, f: Fonts, doc: PDFDocument) {
+  text(page, l.line1, 42, 171.5, 13, f.regular, C.body, { max: 505 });
+  text(page, l.line2, 42, 192.5, 13, f.regular, C.body, { max: 505 });
+  const img = l.image.type === 'png' ? await doc.embedPng(l.image.bytes) : await doc.embedJpg(l.image.bytes);
+  const [x0, y0, x1, y1] = [42, 228, 553, 732];
+  const scale = Math.min((x1 - x0) / img.width, (y1 - y0) / img.height);
+  const w = img.width * scale;
+  const h = img.height * scale;
+  page.drawImage(img, { x: x0 + (x1 - x0 - w) / 2, y: pageTop(page) - y0 - h, width: w, height: h });
+  text(page, 'Indicative panel layout – final setting-out subject to site checks.', 57.8, 747, 9.5, f.regular, C.body, { max: 495 });
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function drawProduction(page: PDFPage, p: NonNullable<QuotePdfData['production']>, f: Fonts) {
+  text(page, p.heading, 42, 200.5, 16, f.bold, C.heading, { max: 505 });
+  text(page, p.line, 36.3, 257.5, 10.5, f.regular, C.body, { max: 510 });
+
+  // Monthly production chart: bars with kWh labels
+  const x0 = 50;
+  const x1 = 545;
+  const top = 300;
+  const base = 500;
+  const max = Math.max(...p.monthlyKwh, 1);
+  const step = (x1 - x0) / 12;
+  const bw = step * 0.62;
+  text(page, 'Estimated monthly generation (kWh/month)', 36.3, 285, 9, f.medium, C.body);
+  hline(page, x0 - 6, x1, base, C.border, 0.8);
+  p.monthlyKwh.forEach((v, i) => {
+    const h = (v / max) * (base - top - 16);
+    const bx = x0 + i * step + (step - bw) / 2;
+    roundRect(page, bx, base - h, bx + bw, base, { fill: i >= 3 && i <= 8 ? C.lime : C.heading, r: 2 });
+    text(page, Math.round(v).toLocaleString('en-GB'), bx + bw / 2, base - h - 12, 7.5, f.medium, C.body, { align: 'center' });
+    text(page, MONTHS[i], bx + bw / 2, base + 6, 8, f.regular, C.muted, { align: 'center' });
   });
-  y += 84;
-  for (const line of g.lines) {
-    for (const l of wrap(line, f.regular, 9, 500)) {
-      text(page, l, 42, y, 9, f.regular, C.muted);
-      y += 13;
+
+  let y = 540;
+  for (const n of p.notes) {
+    for (const l of wrap(n, f.regular, 9.5, 505)) {
+      text(page, l, 36.3, y, 9.5, f.regular, C.body);
+      y += 14;
     }
-    y += 5;
+    y += 6;
   }
+}
+
+function drawNotes(page: PDFPage, d: QuotePdfData, f: Fonts) {
+  const line1 = `PROJECT-SPECIFIC EXCLUSIONS / DEPARTURES: ${d.terms.exclusions}`;
+  const line2 = `VAT: ${d.terms.vat}   |   Payment terms: ${d.terms.payment}`;
+  text(page, line1, 42, 665, 8.5, f.regular, C.navy, { max: 510 });
+  text(page, line2, 42, 677, 8.5, f.regular, C.navy, { max: 510 });
 }
 
 async function drawCosting(d: QuotePdfData, f: Fonts, newPage: () => Promise<PDFPage>) {
   const X0 = 42;
   const X1 = 553;
-  const BOTTOM = 742;
+  const BOTTOM = 725;
   const col = { item: 50, desc: 76, qty: 372, unit: 456, amount: 545 };
 
   let page = await newPage();
-  let y = 205;
+  let y = 176;
 
   // Project box
   roundRect(page, X0, y, X1, y + 58, { fill: C.tint, border: C.border, r: 10 });
   text(page, 'PROJECT', 58, y + 11, 7, f.medium, C.muted);
   text(page, d.projectName || '—', 58, y + 23, 12, f.bold, C.ink, { max: 280 });
-  text(page, [d.clientName, d.address].filter(Boolean).join(' · '), 58, y + 41, 8.5, f.regular, C.muted, { max: 290 });
+  text(page, [d.contact, d.clientName, d.address].filter(Boolean).join(' · '), 58, y + 41, 8.5, f.regular, C.muted, { max: 290 });
   text(page, 'REFERENCE', 365, y + 11, 7, f.medium, C.muted);
   text(page, d.reference || '—', 365, y + 25, 9.5, f.medium, C.ink, { max: 95 });
   text(page, 'DATE', 465, y + 11, 7, f.medium, C.muted);
@@ -324,7 +304,7 @@ async function drawCosting(d: QuotePdfData, f: Fonts, newPage: () => Promise<PDF
     const h = 22 + detail.length * 10;
     if (y + h > BOTTOM) {
       page = await newPage();
-      y = 205;
+      y = 176;
       header();
     }
     if (i % 2 === 1) page.drawRectangle({ x: X0, y: pageTop(page) - y - h, width: X1 - X0, height: h, color: C.tint });
@@ -349,7 +329,7 @@ async function drawCosting(d: QuotePdfData, f: Fonts, newPage: () => Promise<PDF
   const blockH = Math.max(notesH, totalsH) + 16 + payH;
   if (y + 16 + blockH > BOTTOM) {
     page = await newPage();
-    y = 205;
+    y = 176;
   } else y += 16;
 
   // Pricing notes

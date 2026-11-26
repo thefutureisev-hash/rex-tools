@@ -64,20 +64,28 @@ Until a sheet is uploaded, the app falls back to a fictional sample list (`data/
 
 ## Quote PDF
 
-"Generate quote PDF" builds the customer PDF in the browser from REX's Canva **Solar Quotation
-Template**: the fixed pages (About, Services, Solar & battery, Next steps, Recent work) are copied as
-they are, and the cover, scope of works, project design (residential only) and project costing pages
-are filled in (`shared/quotePdf.ts`, content from `shared/quoteDocs.ts`). Payment schedules default to
-60/40 for developers and 20/50/25/5 for residential, and can be changed per quote.
+"Generate quote PDF" builds the customer PDF in the browser from REX's Canva **Commercial Solar
+Quotation (master)** template, 11 pages. Fixed pages (About, Services, Solar & battery, Notes text,
+Recent work) are copied as they are; these are filled in (`shared/quotePdf.ts`, content from
+`shared/quoteDocs.ts`):
+
+- Cover: site address, contact, client and date
+- Scope of Works: heading and the nine scope rows
+- Satellite Panel Layout: only when a layout image is uploaded with the quote
+- Solar Production & Payback: residential only, with a monthly chart from `monthlyShare`
+- Project Costing: itemised table, totals and payment schedule
+- Notes & Exclusions: project-specific exclusions, VAT basis and payment terms
+
+The Finance page is left out until finance (Warm Homes) is set up.
 
 The template is kept on the server, not in git. After exporting a new version from Canva, prepare it with:
 
 ```bash
-PRICE_DATA_DIR=/path/to/private npx tsx scripts/prepare-template.mts "Solar Quotation Template.pdf"
+PRICE_DATA_DIR=/path/to/private npx tsx scripts/prepare-template.mts "REX Commercial Solar Quotation.pdf"
 ```
 
-This hides the placeholder text (needs `pdftoppm` and Python with Pillow). If the layout of the cover,
-scope or costing pages changes, the positions in `TEMPLATE` (`shared/quotePdf.ts`) need updating.
+and upload the result on Team & data. This hides the placeholder text (needs `pdftoppm` and Python with
+Pillow). If the template's layout changes, the positions in `TEMPLATE` (`shared/quotePdf.ts`) need updating.
 
 ## Logins
 
